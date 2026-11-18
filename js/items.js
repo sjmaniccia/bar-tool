@@ -3,11 +3,11 @@
 // tequila to a case of limes to a sack of malt.
 
 import { db, commit } from "./storage.js";
-import { setPrice, currentPrice, costPerUnit, deletePricesFor } from "./prices.js";
+import { addPrice, currentPrice, costPerUnit, deletePricesFor } from "./prices.js";
 import { PURCHASE_UNITS, displayUnitFor, fillUnitSelect } from "./units.js";
 import { sortedDistributors } from "./distributors.js";
 import {
-    makeId, today, findById, formatMoney, formatAmount,
+    makeId, now, findById, formatMoney, formatAmount,
     readField, writeField, makeElement, makeButton, resetList
 } from "./utils.js";
 
@@ -39,7 +39,7 @@ function linesUsingItem(itemId) {
 function addItem(fields, price) {
     fields.id = makeId();
     db.items.push(fields);
-    setPrice(fields.id, price, today());
+    addPrice(fields.id, price, now());
     commit();
 }
 
@@ -61,7 +61,7 @@ function updatePrice(itemId) {
         return;
     }
 
-    setPrice(itemId, amount, today());
+    addPrice(itemId, amount, now());
     commit();
 }
 
