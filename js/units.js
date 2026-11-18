@@ -14,10 +14,15 @@
 const UNITS = {
     "ml":      { family: "volume", toBase: 1 },
     "L":       { family: "volume", toBase: 1000 },
+    "teaspoon": { family: "volume", toBase: 4.92892 },
+    "tablespoon": { family: "volume", toBase: 14.7868 },
     "fl oz":   { family: "volume", toBase: 29.5735 },
     "cup":     { family: "volume", toBase: 236.588 },
+    "pint":    { family: "volume", toBase: 473.176 },
+    "quart":   { family: "volume", toBase: 946.353 },
     "gal":     { family: "volume", toBase: 3785.41 },
-    "barrel":  { family: "volume", toBase: 117347.77 },  // US beer barrel = 31 gal
+    "barrel":  { family: "volume", toBase: 117347.77 },  // KEG - US beer barrel = 31 gal
+    
 
     "g":       { family: "weight", toBase: 1 },
     "kg":      { family: "weight", toBase: 1000 },
@@ -28,6 +33,8 @@ const UNITS = {
     "dozen":   { family: "count", toBase: 12 },
 
     "serving": { family: "serving", toBase: 1 }
+
+  
 };
 
 // The unit each family's costs are shown in, e.g. "$0.68/fl oz"
