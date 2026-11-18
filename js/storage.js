@@ -15,7 +15,7 @@
 //                   each line uses an item OR a sub-recipe, never both
 // }
 
-const STORAGE_KEY = "barTool.data.v3";
+const STORAGE_KEY = "barTool.data";
 
 function emptyData() {
     return {
