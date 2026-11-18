@@ -1,22 +1,17 @@
 // ===== storage.js =====
-// Owns the data. Every other file reads and changes `db` from here.
+// Holds all the app's data and saves it in the browser.
 //
-// The data is stored as separate "tables" that match the ERD.
-// Tables point at each other by ID, like foreign keys in a database.
-//
-// db = {
-//     distributors: [{ id, companyName, companyPhone, street, city,
-//                      state, zip, repName, repPhone }],
-//     items:        [{ id, distributorId, name, category,
-//                      packCount, packSize, sizeUnit, yieldPercent }],
-//     priceEntries: [{ itemId, date, amount }],      key = itemId + date
-//     recipes:      [{ id, name, type, yieldAmount, yieldUnit, menuPrice }],
-//     recipeLines:  [{ id, recipeId, itemId, subRecipeId, amount, unit }]
-//                   each line uses an item OR a sub-recipe, never both
-// }
+// Data is split into tables that match the ERD:
+//     distributors   { id, bizName, bizPhone, street, city, state, zip, repName, repPhone }
+//     items          { id, distributorId, name, category, packCount, packSize, sizeUnit, yieldPercent }
+//     priceEntries   { itemId, date, amount }        one per item per day
+//     recipes        { id, name, type, yieldAmount, yieldUnit, menuPrice }
+//     recipeLines    { id, recipeId, itemId, subRecipeId, amount, unit }   item OR sub-recipe
 
-const STORAGE_KEY = "barTool.data";
+// Name the data is saved under (bump the version if the data's shape changes)
+const STORAGE_KEY = "barTool.data.v3";
 
+// Make a fresh set of empty tables
 function emptyData() {
     return {
         distributors: [],
@@ -27,50 +22,57 @@ function emptyData() {
     };
 }
 
-// localStorage only holds text, so the db is saved as JSON text
+// Load saved data from the browser
+//     IF nothing saved, return empty tables
+//     ELSE turn the saved text back into tables
 export function loadData() {
     const data = emptyData();
     try {
         const saved = localStorage.getItem(STORAGE_KEY);
         if (saved === null) {
-            return data; // first time opening the app
+            return data;
         }
-        const parsed = JSON.parse(saved);
+        const parsed = JSON.parse(saved);   // text -> objects
 
-        // Copy each saved table. Tables added in later versions start empty.
+        // Copy each saved table (any table missing from an old save stays empty)
         for (const table of Object.keys(data)) {
             if (Array.isArray(parsed[table])) {
                 data[table] = parsed[table];
             }
         }
     } catch (error) {
+        // If the saved data is broken, start empty instead of crashing
         console.log("Could not load saved data:", error);
     }
     return data;
 }
 
+// The one shared copy of all data. Every file imports this.
 export const db = loadData();
 
+// Save all data to the browser as text
 function saveData() {
     try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));   // objects -> text
     } catch (error) {
         console.log("Could not save data:", error);
     }
 }
 
 
-// ----- Change notifications -----
-// After any file changes the data, it calls commit(). That saves the
-// data and tells every listener (main.js's renderAll) to redraw.
-// This way items.js doesn't need to know how recipes are drawn.
+// ===== Change notifications =====
+// Any file that changes data calls commit()
+// commit() saves, then runs every function registered with onChange()
+// (main.js registers renderAll, so every save redraws every screen)
 
 const listeners = [];
 
+// Remember a function to run after every save
 export function onChange(listener) {
     listeners.push(listener);
 }
 
+// Save, then run every remembered function
 export function commit() {
     saveData();
     for (const listener of listeners) {
