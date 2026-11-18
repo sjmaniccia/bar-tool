@@ -1,12 +1,18 @@
 // ===== main.js =====
-// The starting point. Sets up each screen, the tabs, and redrawing.
+// Starts the app. index.html loads this file first.
+//
+// SET UP the tabs and every screen
+// WHEN data changes, redraw every screen
+// DRAW every screen once now
 
+// Borrow functions from the other files
 import { onChange } from "./storage.js";
 import { initDistributors, renderDistributors } from "./distributors.js";
 import { initItems, renderItems } from "./items.js";
 import { initRecipes, renderRecipes } from "./recipes.js";
 
-// Redraw every screen from the data. Runs after every commit().
+
+// Redraw every screen (screens depend on each other, so redraw them all)
 function renderAll() {
     renderDistributors();
     renderItems();
@@ -14,17 +20,20 @@ function renderAll() {
 }
 
 
-// ----- Tabs -----
+// ===== Tabs =====
 
+// Show the screen with this id, hide the rest
 function showView(viewId) {
     for (const view of document.querySelectorAll(".view")) {
-        view.hidden = view.id !== viewId;
+        view.hidden = view.id !== viewId;   // hide it if it's not the one we want
     }
+    // Highlight the matching tab (its data-view attribute names its screen)
     for (const tab of document.querySelectorAll(".tab")) {
         tab.classList.toggle("active", tab.dataset.view === viewId);
     }
 }
 
+// When a tab is clicked, show its screen
 function initTabs() {
     for (const tab of document.querySelectorAll(".tab")) {
         tab.addEventListener("click", function () {
@@ -34,11 +43,15 @@ function initTabs() {
 }
 
 
-// ----- Start up -----
+// ===== Start up (runs as soon as the file loads) =====
 
 initTabs();
 initDistributors();
 initItems();
 initRecipes();
+
+// After every save, run renderAll (no parentheses = hand it over, don't run it yet)
 onChange(renderAll);
+
+// Draw everything now (parentheses = run it)
 renderAll();
