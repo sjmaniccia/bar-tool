@@ -1,32 +1,37 @@
 // ===== prices.js =====
 // Price history for items, and what an item really costs per unit.
-// Each price entry is { itemId, date, amount }, one per item per day.
+// Each price entry is { id, itemId, amount, recordedAt }.
+// An item can have any number of prices, even several in one day.
+//
+// recordedAt is when the price took effect, as text that sorts correctly:
+//     "2026-11-18T20:27:03.123Z"   a price entered right now
+//     "2026-11-10"                 a back-dated invoice (counts as the start of that day)
 
 import { db } from "./storage.js";
 import { convert } from "./units.js";
+import { makeId } from "./utils.js";
 
 
-// Record a price for an item on a date
-//     IF this item already has a price on this date, replace it
-//     ELSE add a new entry (keeps history)
-export function setPrice(itemId, amount, date) {
-    for (const entry of db.priceEntries) {
-        if (entry.itemId === itemId && entry.date === date) {
-            entry.amount = amount;
-            return;
-        }
-    }
-    db.priceEntries.push({ itemId: itemId, date: date, amount: amount });
+// Record a new price (always adds, never replaces, so history is kept)
+export function addPrice(itemId, amount, recordedAt) {
+    db.priceEntries.push({
+        id: makeId(),
+        itemId: itemId,
+        amount: amount,
+        recordedAt: recordedAt
+    });
 }
 
 // Get the item's newest price (0 if it has none)
+//     Newest = latest recordedAt
+//     IF two have the exact same time, the one added last wins
 export function currentPrice(itemId) {
     let newest = null;
     for (const entry of db.priceEntries) {
         if (entry.itemId !== itemId) {
             continue;   // skip other items' prices
         }
-        if (newest === null || entry.date > newest.date) {   // "2026-11-18" > "2026-10-01"
+        if (newest === null || entry.recordedAt >= newest.recordedAt) {
             newest = entry;
         }
     }
@@ -64,3 +69,4 @@ export function deletePricesFor(itemId) {
 }
 
 // FIXME: Price history for one item, newest first
+// FIXME: Edit or delete a single price entry (to fix a typo)
