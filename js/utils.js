@@ -9,10 +9,9 @@ export function makeId() {
     return Date.now().toString() + Math.random().toString(16).slice(2);
 }
 
-// Today's date as "2026-11-18" (this format sorts correctly as text)
-// FIXME: uses UTC time, so late at night it can read as tomorrow
-export function today() {
-    return new Date().toISOString().slice(0, 10);
+// The current moment as "2026-11-18T20:27:03.123Z" (sorts correctly as text)
+export function now() {
+    return new Date().toISOString();
 }
 
 // Find the row in a table with this id, or null if none
