@@ -1,6 +1,6 @@
 // ===== distributors.js =====
-// Everything for the Distributors screen: the form, the list,
-// adding, editing and deleting.
+// The Distributors screen: add, edit, delete, and list distributors.
+// Phones and ZIP are stored as text (no math on them, and they can have dashes).
 
 import { db, commit } from "./storage.js";
 import {
@@ -8,6 +8,8 @@ import {
     makeElement, makePhoneLink, makeButton, resetList
 } from "./utils.js";
 
+
+// State choices (a dropdown keeps "TN" from also being typed as "Tenn")
 const US_STATES = [
     "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "DC", "FL",
     "GA", "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME",
@@ -16,8 +18,7 @@ const US_STATES = [
     "SC", "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY"
 ];
 
-// Form field ids, matched to the distributor's property names.
-// Lets us read, fill and clear the form with one loop each.
+// Each distributor field and its form box id (lets one loop handle every field)
 const FORM_FIELDS = {
     companyName: "d-company-name",
     companyPhone: "d-company-phone",
@@ -29,18 +30,22 @@ const FORM_FIELDS = {
     repPhone: "d-rep-phone"
 };
 
-// When this holds an ID, the form is editing instead of adding
+// null = the form adds a new distributor, an id = the form edits that one
 let editingId = null;
 
 
-// ----- Data -----
+// ===== Data =====
 
+// All distributors, A-Z by company name (copy first so the saved order doesn't change)
 export function sortedDistributors() {
     return db.distributors.slice().sort(function (a, b) {
         return a.companyName.localeCompare(b.companyName);
     });
 }
 
+// Save the form
+//     IF adding, create a new distributor
+//     ELSE copy the new values onto the one being edited
 function saveDistributor(fields) {
     if (editingId === null) {
         fields.id = makeId();
@@ -48,20 +53,23 @@ function saveDistributor(fields) {
     } else {
         const distributor = findById(db.distributors, editingId);
         if (distributor !== null) {
-            Object.assign(distributor, fields); // copy new values onto the old row
+            Object.assign(distributor, fields);
         }
     }
     stopEditing();
     commit();
 }
 
+// Delete a distributor
+//     IF any items still use it, refuse
+//     ELSE ask to confirm, then delete
 function deleteDistributor(id) {
     const distributor = findById(db.distributors, id);
     if (distributor === null) {
         return;
     }
 
-    // Don't leave items pointing at a distributor that no longer exists
+    // Count items that use this distributor
     let itemsUsingIt = 0;
     for (const item of db.items) {
         if (item.distributorId === id) {
@@ -75,8 +83,10 @@ function deleteDistributor(id) {
     }
 
     if (!confirm("Delete " + distributor.companyName + "?")) {
-        return;
+        return;   // they clicked Cancel
     }
+
+    // Keep every distributor except this one
     db.distributors = db.distributors.filter(function (d) {
         return d.id !== id;
     });
@@ -87,8 +97,9 @@ function deleteDistributor(id) {
 }
 
 
-// ----- Form -----
+// ===== The form =====
 
+// Read every form box into one object
 function readForm() {
     const fields = {};
     for (const [property, fieldId] of Object.entries(FORM_FIELDS)) {
@@ -97,7 +108,7 @@ function readForm() {
     return fields;
 }
 
-// Fill the form with an existing distributor, e.g. to swap in a new rep
+// Fill the form with a distributor so it can be edited
 function startEditing(id) {
     const distributor = findById(db.distributors, id);
     if (distributor === null) {
@@ -109,15 +120,17 @@ function startEditing(id) {
         writeField(fieldId, distributor[property]);
     }
     setFormMode("Edit distributor", "Save changes", true);
-    document.getElementById("distributor-form").scrollIntoView({ behavior: "smooth" });
+    document.getElementById("distributor-form").scrollIntoView({ behavior: "smooth" });   // scroll up to the form
 }
 
+// Clear the form and switch back to adding
 function stopEditing() {
     editingId = null;
     document.getElementById("distributor-form").reset();
     setFormMode("Add a distributor", "Add distributor", false);
 }
 
+// Set the form's title, button text, and whether Cancel shows
 function setFormMode(title, buttonText, showCancel) {
     document.getElementById("distributor-form-title").textContent = title;
     document.getElementById("distributor-submit").textContent = buttonText;
@@ -125,7 +138,7 @@ function setFormMode(title, buttonText, showCancel) {
 }
 
 
-// ----- Drawing -----
+// ===== Drawing =====
 
 // "1234 Main St, Chattanooga, TN 37402", skipping blank parts
 function formatAddress(d) {
@@ -136,6 +149,7 @@ function formatAddress(d) {
     return parts.join(", ");
 }
 
+// Build one distributor's row: name, address, phones, Edit and Delete
 function makeDistributorItem(d) {
     const item = makeElement("li", "item");
     const info = makeElement("div");
@@ -143,12 +157,14 @@ function makeDistributorItem(d) {
     info.append(makeElement("strong", "", d.companyName));
     info.append(makeElement("span", "details", formatAddress(d)));
 
+    // Office phone, if there is one
     if (d.companyPhone) {
         const phoneLine = makeElement("span", "details", "Office: ");
         phoneLine.append(makePhoneLink(d.companyPhone));
         info.append(phoneLine);
     }
 
+    // Rep name and phone, if there are any
     if (d.repName || d.repPhone) {
         const repLine = makeElement("span", "details", "Rep: " + d.repName);
         if (d.repPhone) {
@@ -157,6 +173,7 @@ function makeDistributorItem(d) {
         info.append(repLine);
     }
 
+    // When Edit is clicked, edit this one. When Delete is clicked, delete it.
     const buttons = makeElement("div", "buttons");
     buttons.append(
         makeButton("Edit", "secondary", function () { startEditing(d.id); }),
@@ -167,6 +184,7 @@ function makeDistributorItem(d) {
     return item;
 }
 
+// Redraw the distributor list
 export function renderDistributors() {
     const list = resetList("distributor-list", "distributor-empty", db.distributors.length);
     for (const d of sortedDistributors()) {
@@ -175,7 +193,7 @@ export function renderDistributors() {
 }
 
 
-// ----- Setup (runs once on page load) -----
+// ===== Setup (runs once on page load) =====
 
 export function initDistributors() {
     // Fill the state dropdown
@@ -185,8 +203,9 @@ export function initDistributors() {
         stateSelect.append(new Option(code, code));
     }
 
+    // When the form is submitted, save the distributor
     document.getElementById("distributor-form").addEventListener("submit", function (event) {
-        event.preventDefault(); // stop the page from reloading
+        event.preventDefault();   // stop the page from reloading
         const fields = readForm();
         if (fields.companyName === "" || fields.state === "") {
             return;
@@ -194,5 +213,6 @@ export function initDistributors() {
         saveDistributor(fields);
     });
 
+    // When Cancel is clicked, stop editing
     document.getElementById("distributor-cancel").addEventListener("click", stopEditing);
 }
