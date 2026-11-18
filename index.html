@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <!-- Makes the page fit phone screens instead of looking zoomed out -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bar Tool</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- ===== Header and tabs ===== -->
+    <header>
+        <h1>Bar Tool</h1>
+        <nav class="tabs">
+            <button type="button" class="tab active" data-view="items-view">Items</button>
+            <button type="button" class="tab" data-view="recipes-view">Recipes</button>
+            <button type="button" class="tab" data-view="distributors-view">Distributors</button>
+        </nav>
+    </header>
+
+    <main>
+
+        <!-- ===== Items screen =====
+             Anything you buy: liquor, produce, meat, brewing supplies.
+             Cost per unit = price ÷ (pack count × pack size × yield %). -->
+        <div id="items-view" class="view">
+            <section class="card">
+                <h2>Add an item</h2>
+                <form id="item-form">
+                    <label>
+                        Name
+                        <input id="item-name" type="text" placeholder="Tito's Vodka" required>
+                    </label>
+
+                    <label>
+                        Category
+                        <!-- Filled in by JavaScript from CATEGORIES in items.js -->
+                        <select id="item-category"></select>
+                    </label>
+
+                    <!-- How it comes: 1 × 1000 ml bottle, or 24 × 12 fl oz case -->
+                    <div class="row">
+                        <label>
+                            Pack count
+                            <input id="item-pack-count" type="number" min="1" step="1" value="1" required>
+                        </label>
+                        <label>
+                            Size
+                            <input id="item-pack-size" type="number" min="0" step="any" placeholder="1000" required>
+                        </label>
+                        <label>
+                            Unit
+                            <!-- Filled in by JavaScript from PURCHASE_UNITS in units.js -->
+                            <select id="item-size-unit"></select>
+                        </label>
+                    </div>
+
+                    <!-- Usable share after trimming, cooking or juicing. 100 for liquor. -->
+                    <label>
+                        Yield (%)
+                        <input id="item-yield" type="number" min="1" max="100" step="any" value="100" required>
+                    </label>
+
+                    <label>
+                        Price for the whole pack ($)
+                        <input id="item-price" type="number" step="0.01" min="0" placeholder="22.99" required>
+                    </label>
+
+                    <label>
+                        Distributor
+                        <!-- Filled in by JavaScript from the distributors list -->
+                        <select id="item-distributor"></select>
+                    </label>
+
+                    <button type="submit">Add item</button>
+                </form>
+            </section>
+
+            <section class="card">
+                <h2>Your items</h2>
+                <p id="item-empty" class="empty">No items yet. Add one above.</p>
+                <ul id="item-list" class="item-list"></ul>
+            </section>
+        </div>
+
+        <!-- ===== Recipes screen =====
+             Cocktails, dishes, beers, and prep recipes (syrups, juices,
+             sauces) that other recipes can use as ingredients. -->
+        <div id="recipes-view" class="view" hidden>
+            <section class="card">
+                <h2>Add a recipe</h2>
+                <form id="recipe-form">
+                    <label>
+                        Name
+                        <input id="recipe-name" type="text" placeholder="Margarita" required>
+                    </label>
+
+                    <label>
+                        Type
+                        <!-- Filled in by JavaScript from RECIPE_TYPES in recipes.js -->
+                        <select id="recipe-type"></select>
+                    </label>
+
+                    <!-- What one batch makes: 1 serving, 8 servings, 32 fl oz, 10 barrel -->
+                    <div class="row two">
+                        <label>
+                            Makes
+                            <input id="recipe-yield-amount" type="number" min="0" step="any" value="1" required>
+                        </label>
+                        <label>
+                            Unit
+                            <!-- Filled in by JavaScript from YIELD_UNITS in units.js -->
+                            <select id="recipe-yield-unit"></select>
+                        </label>
+                    </div>
+
+                    <!-- Per serving. Leave blank for prep recipes that aren't sold. -->
+                    <label>
+                        Menu price per serving ($)
+                        <input id="recipe-price" type="number" step="0.01" min="0" placeholder="Optional">
+                    </label>
+
+                    <button type="submit">Add recipe</button>
+                </form>
+            </section>
+
+            <section class="card">
+                <h2>Your recipes</h2>
+                <p id="recipe-empty" class="empty">No recipes yet. Add one above.</p>
+                <!-- JavaScript builds each recipe with its ingredients and costs -->
+                <ul id="recipe-list" class="item-list"></ul>
+            </section>
+        </div>
+
+        <!-- ===== Distributors screen ===== -->
+        <div id="distributors-view" class="view" hidden>
+            <section class="card">
+                <h2 id="distributor-form-title">Add a distributor</h2>
+                <form id="distributor-form">
+                    <fieldset>
+                        <legend>Company</legend>
+                        <label>
+                            Company name
+                            <input id="d-company-name" type="text" placeholder="Southern Glazer's" required>
+                        </label>
+                        <label>
+                            Company phone
+                            <input id="d-company-phone" type="tel" placeholder="(423) 555-0100">
+                        </label>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Address</legend>
+                        <label>
+                            Street
+                            <input id="d-street" type="text" placeholder="1234 Main St">
+                        </label>
+                        <div class="row">
+                            <label>
+                                City
+                                <input id="d-city" type="text" placeholder="Chattanooga">
+                            </label>
+                            <label>
+                                State
+                                <!-- Filled in by JavaScript from US_STATES in distributors.js -->
+                                <select id="d-state" required></select>
+                            </label>
+                            <label>
+                                ZIP
+                                <input id="d-zip" type="text" inputmode="numeric"
+                                       pattern="[0-9]{5}(-[0-9]{4})?" placeholder="37402">
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Sales rep</legend>
+                        <label>
+                            Rep name
+                            <input id="d-rep-name" type="text" placeholder="Jordan Smith">
+                        </label>
+                        <label>
+                            Rep phone
+                            <input id="d-rep-phone" type="tel" placeholder="(423) 555-0123">
+                        </label>
+                    </fieldset>
+
+                    <div class="form-buttons">
+                        <button type="submit" id="distributor-submit">Add distributor</button>
+                        <button type="button" id="distributor-cancel" class="secondary" hidden>Cancel</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="card">
+                <h2>Your distributors</h2>
+                <p id="distributor-empty" class="empty">No distributors yet. Add one above.</p>
+                <ul id="distributor-list" class="item-list"></ul>
+            </section>
+        </div>
+
+    </main>
+
+    <!-- type="module" lets the JS files import from each other -->
+    <script type="module" src="js/main.js"></script>
+</body>
+</html>
