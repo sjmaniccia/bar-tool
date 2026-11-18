@@ -1,17 +1,21 @@
 // ===== utils.js =====
-// Small helpers used by every screen. No app data in here.
+// Small helpers every screen uses. No app data in here.
 
-// Unique ID from the current time plus some random characters
+
+// ===== IDs and dates =====
+
+// Make a unique id from the current time plus random characters
 export function makeId() {
     return Date.now().toString() + Math.random().toString(16).slice(2);
 }
 
-// Today's date as "2026-11-18". This format sorts correctly as text.
+// Today's date as "2026-11-18" (this format sorts correctly as text)
+// FIXME: uses UTC time, so late at night it can read as tomorrow
 export function today() {
     return new Date().toISOString().slice(0, 10);
 }
 
-// Look up one row in any table by its id
+// Find the row in a table with this id, or null if none
 export function findById(table, id) {
     for (const row of table) {
         if (row.id === id) {
@@ -22,33 +26,36 @@ export function findById(table, id) {
 }
 
 
-// ----- Formatting -----
+// ===== Formatting =====
 
+// 22.9 -> "$22.90"
 export function formatMoney(amount) {
     return "$" + amount.toFixed(2);
 }
 
-// Show an amount with at most 2 decimals and no trailing zeros: 1.5, 2, 0.25
+// Up to 2 decimals, no trailing zeros: 1.50 -> "1.5", 2.00 -> "2"
 export function formatAmount(amount) {
     return String(Number(amount.toFixed(2)));
 }
 
 
-// ----- Forms -----
+// ===== Form fields =====
 
+// Get what's typed in a field, trimmed (always text, even in number fields)
 export function readField(id) {
     return document.getElementById(id).value.trim();
 }
 
+// Put a value into a field
 export function writeField(id, value) {
     document.getElementById(id).value = value;
 }
 
 
-// ----- Building elements -----
-// All of these use textContent, so user input always shows as
-// plain text and never runs as code (XSS protection).
+// ===== Building page elements =====
+// These all use textContent, so typed text shows as text and never runs as code
 
+// Make an element with an optional class and text
 export function makeElement(tag, className, text) {
     const element = document.createElement(tag);
     if (className) {
@@ -60,21 +67,22 @@ export function makeElement(tag, className, text) {
     return element;
 }
 
-// Tapping this on a phone starts a call
+// Make a phone link (tapping it on a phone starts a call)
 export function makePhoneLink(number) {
     const link = makeElement("a", "", number);
-    link.href = "tel:" + number.replace(/[^0-9+]/g, ""); // digits only
+    link.href = "tel:" + number.replace(/[^0-9+]/g, "");   // remove everything except digits and +
     return link;
 }
 
+// Make a button. When it's clicked, run onClick.
 export function makeButton(text, className, onClick) {
     const button = makeElement("button", className, text);
-    button.type = "button";
+    button.type = "button";   // so it doesn't submit a form by accident
     button.addEventListener("click", onClick);
     return button;
 }
 
-// Clear a list and show/hide its "nothing here yet" message
+// Empty a list, show the "nothing here" message only if count is 0, return the list
 export function resetList(listId, emptyId, count) {
     document.getElementById(listId).innerHTML = "";
     document.getElementById(emptyId).hidden = count > 0;
