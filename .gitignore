@@ -1,0 +1,11 @@
+# Mac system files
+.DS_Store
+
+# Installed packages (npm install recreates these)
+node_modules/
+
+# Built site (GitHub Actions builds it fresh)
+dist/
+
+# Secrets like passwords or API keys
+.env
