@@ -14,16 +14,14 @@
 const UNITS = {
     "ml":      { family: "volume", toBase: 1 },
     "L":       { family: "volume", toBase: 1000 },
+    "tsp":     { family: "volume", toBase: 4.92892 },    // teaspoon
+    "Tbsp":    { family: "volume", toBase: 14.7868 },    // tablespoon = 3 tsp
     "fl oz":   { family: "volume", toBase: 29.5735 },
     "cup":     { family: "volume", toBase: 236.588 },
     "pint":    { family: "volume", toBase: 473.176 },
     "quart":   { family: "volume", toBase: 946.353 },
     "gal":     { family: "volume", toBase: 3785.41 },
     "barrel":  { family: "volume", toBase: 117347.77 },  // KEG - US beer barrel = 31 gal
-
-    "teaspoon": { family: "tsp", toBase: 1 },
-
-    "tablespoon": { family: "Tbsp", toBase: 1 },
 
     "g":       { family: "weight", toBase: 1 },
     "kg":      { family: "weight", toBase: 1000 },
@@ -34,8 +32,6 @@ const UNITS = {
     "dozen":   { family: "count", toBase: 12 },
 
     "serving": { family: "serving", toBase: 1 }
-
-  
 };
 
 // The unit each family's costs are shown in, e.g. "$0.68/fl oz"
@@ -43,9 +39,7 @@ const DISPLAY_UNIT = {
     volume: "fl oz",
     weight: "lb",
     count: "each",
-    serving: "serving",
-    Tbsp: "Tbsp",
-    tsp: "tsp"
+    serving: "serving"
 };
 
 // Units you can buy something in (you can't buy "a serving")
