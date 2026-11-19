@@ -13,81 +13,159 @@
     <header>
         <h1>Bar Tool</h1>
         <nav class="tabs">
-            <button type="button" class="tab active" data-view="items-view">Items</button>
-            <button type="button" class="tab" data-view="recipes-view">Recipes</button>
-            <button type="button" class="tab" data-view="distributors-view">Distributors</button>
+            <button type="button" class="tab active" data-view="recipes-view">Recipes</button>
+            <button type="button" class="tab" data-view="ingredients-view">Ingredients</button>
+            <button type="button" class="tab" data-view="products-view">Products</button>
+            <button type="button" class="tab" data-view="vendors-view">Vendors</button>
         </nav>
     </header>
 
     <main>
 
-        <!-- ===== Items screen =====
-             Anything you buy: liquor, produce, meat, brewing supplies.
-             Cost per unit = price ÷ (pack count × pack size × yield %). -->
-        <div id="items-view" class="view">
+        <!-- ===== Ingredients screen =====
+             What recipes ask for ("Vodka"), and every item you could buy
+             for each one, cheapest first. Pick a house choice here. -->
+        <div id="ingredients-view" class="view" hidden>
             <section class="card">
-                <h2>Add an item</h2>
-                <form id="item-form">
+                <h2>Add an ingredient</h2>
+                <form id="ingredient-form">
                     <label>
                         Name
-                        <input id="item-name" type="text" placeholder="Tito's Vodka" required>
+                        <input id="ingredient-name" type="text" placeholder="Vodka" required>
                     </label>
-
-                    <label>
-                        Category
-                        <!-- Filled in by JavaScript from CATEGORIES in items.js -->
-                        <select id="item-category"></select>
-                    </label>
-
-                    <!-- How it comes: 1 × 1000 ml bottle, or 24 × 12 fl oz case -->
-                    <div class="row">
-                        <label>
-                            Pack count
-                            <input id="item-pack-count" type="number" min="1" step="1" value="1" required>
-                        </label>
-                        <label>
-                            Size
-                            <input id="item-pack-size" type="number" min="0" step="any" placeholder="1000" required>
-                        </label>
-                        <label>
-                            Unit
-                            <!-- Filled in by JavaScript from PURCHASE_UNITS in units.js -->
-                            <select id="item-size-unit"></select>
-                        </label>
-                    </div>
-
-                    <!-- Usable share after trimming, cooking or juicing. 100 for liquor. -->
-                    <label>
-                        Yield (%)
-                        <input id="item-yield" type="number" min="1" max="100" step="any" value="100" required>
-                    </label>
-
-                    <label>
-                        Price for the whole pack ($)
-                        <input id="item-price" type="number" step="0.01" min="0" placeholder="22.99" required>
-                    </label>
-
-                    <label>
-                        Distributor
-                        <!-- Filled in by JavaScript from the distributors list -->
-                        <select id="item-distributor"></select>
-                    </label>
-
-                    <button type="submit">Add item</button>
+                    <button type="submit">Add ingredient</button>
                 </form>
             </section>
 
             <section class="card">
-                <h2>Your items</h2>
-                <p id="item-empty" class="empty">No items yet. Add one above.</p>
-                <ul id="item-list" class="item-list"></ul>
+                <h2>Your ingredients</h2>
+                <p id="ingredient-empty" class="empty">No ingredients yet. Add one above, or from a recipe.</p>
+                <ul id="ingredient-list" class="item-list"></ul>
+            </section>
+        </div>
+
+        <!-- ===== Products screen =====
+             The product library: PRODUCT (what it is) > FORMAT (how it's packed,
+             counted in inventory) > PURCHASE UNIT (how you buy it, priced).
+             The form adds all three. Same product + format = adds another way to buy it. -->
+        <div id="products-view" class="view" hidden>
+            <section class="card">
+                <h2>Add a product</h2>
+                <p class="details">Already have the product? Use the same name and size to add another way to buy it, like a single bottle or a different vendor.</p>
+                <form id="product-form">
+                    <fieldset>
+                        <legend>Product: what it is</legend>
+                        <label>
+                            Name
+                            <input id="prod-name" type="text" list="product-names" placeholder="Tito's Handmade Vodka" required>
+                            <datalist id="product-names"></datalist>
+                        </label>
+                        <!-- What recipes call it. Same ingredient = compared on the Ingredients tab. -->
+                        <label>
+                            Ingredient
+                            <input id="prod-ingredient" type="text" list="ingredient-names" placeholder="Vodka">
+                            <!-- Suggestions, filled in by JavaScript from the ingredients list -->
+                            <datalist id="ingredient-names"></datalist>
+                        </label>
+                        <!-- Organization: type a new one or pick a suggestion -->
+                        <div class="row">
+                            <label>
+                                Family
+                                <input id="prod-family" type="text" list="family-names" placeholder="Spirits">
+                                <datalist id="family-names"></datalist>
+                            </label>
+                            <label>
+                                Category
+                                <input id="prod-category" type="text" list="category-names" placeholder="Vodka">
+                                <datalist id="category-names"></datalist>
+                            </label>
+                            <label>
+                                Subcategory
+                                <input id="prod-subcategory" type="text" list="subcategory-names" placeholder="Optional">
+                                <datalist id="subcategory-names"></datalist>
+                            </label>
+                        </div>
+                        <div class="row two">
+                            <label>
+                                Producer
+                                <input id="prod-producer" type="text" placeholder="Optional">
+                            </label>
+                            <label>
+                                ABV (%)
+                                <input id="prod-abv" type="number" min="0" max="100" step="any" placeholder="40">
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Format: how it's packed</legend>
+                        <div class="row">
+                            <label>
+                                Size
+                                <!-- Text so fractions like 1/2 work -->
+                                <input id="fmt-size" type="text" placeholder="1750" required>
+                            </label>
+                            <label>
+                                Unit
+                                <!-- Filled in by JavaScript from PURCHASE_UNITS in units.js -->
+                                <select id="fmt-unit"></select>
+                            </label>
+                            <label>
+                                Packaging
+                                <input id="fmt-packaging" type="text" placeholder="bottle">
+                            </label>
+                        </div>
+                        <!-- Usable share after trimming, cooking or juicing. 100 for liquor. -->
+                        <label>
+                            Yield (%)
+                            <input id="fmt-yield" type="number" min="1" max="100" step="any" value="100" required>
+                        </label>
+                    </fieldset>
+
+                    <fieldset>
+                        <legend>Purchase unit: how you buy it</legend>
+                        <div class="row">
+                            <label>
+                                Bought as
+                                <input id="pu-name" type="text" value="case" placeholder="case">
+                            </label>
+                            <label>
+                                How many
+                                <input id="pu-amount" type="number" min="1" step="1" value="6" required>
+                            </label>
+                            <label>
+                                Price ($)
+                                <input id="pu-price" type="number" step="0.01" min="0" placeholder="204.00" required>
+                            </label>
+                        </div>
+                        <div class="row two">
+                            <label>
+                                Vendor
+                                <!-- Filled in by JavaScript from the vendors list -->
+                                <select id="pu-vendor"></select>
+                            </label>
+                            <label>
+                                SKU
+                                <input id="pu-sku" type="text" placeholder="Optional">
+                            </label>
+                        </div>
+                    </fieldset>
+
+                    <button type="submit">Add product</button>
+                </form>
+            </section>
+
+            <section class="card">
+                <h2>Your products</h2>
+                <p id="product-empty" class="empty">No products yet. Add one above.</p>
+                <ul id="product-list" class="item-list"></ul>
             </section>
         </div>
 
         <!-- ===== Recipes screen =====
              Cocktails, dishes, beers, and prep recipes (syrups, juices,
              sauces) that other recipes can use as ingredients. -->
-        <div id="recipes-view" class="view" hidden>
+        <div id="recipes-view" class="view">
             <section class="card">
                 <h2>Add a recipe</h2>
                 <form id="recipe-form">
@@ -106,7 +184,8 @@
                     <div class="row two">
                         <label>
                             Makes
-                            <input id="recipe-yield-amount" type="number" min="0" step="any" value="1" required>
+                            <!-- Text, not number, so fractions like "1 1/2" can be typed -->
+                            <input id="recipe-yield-amount" type="text" value="1" required>
                         </label>
                         <label>
                             Unit
@@ -114,6 +193,14 @@
                             <select id="recipe-yield-unit"></select>
                         </label>
                     </div>
+
+                    <!-- Optional: for prep recipes that make an ingredient, like
+                         "Fresh lime juice" makes "Lime juice". It then shows up as an
+                         in-house option next to bought items for that ingredient. -->
+                    <label>
+                        Makes ingredient
+                        <input id="recipe-makes" type="text" list="ingredient-names" placeholder="Optional, e.g. Lime juice">
+                    </label>
 
                     <!-- Per serving. Leave blank for prep recipes that aren't sold. -->
                     <label>
@@ -133,11 +220,11 @@
             </section>
         </div>
 
-        <!-- ===== Distributors screen ===== -->
-        <div id="distributors-view" class="view" hidden>
+        <!-- ===== Vendors screen ===== -->
+        <div id="vendors-view" class="view" hidden>
             <section class="card">
-                <h2 id="distributor-form-title">Add a distributor</h2>
-                <form id="distributor-form">
+                <h2 id="vendor-form-title">Add a vendor</h2>
+                <form id="vendor-form">
                     <fieldset>
                         <legend>Company</legend>
                         <label>
@@ -163,7 +250,7 @@
                             </label>
                             <label>
                                 State
-                                <!-- Filled in by JavaScript from US_STATES in distributors.js -->
+                                <!-- Filled in by JavaScript from US_STATES in vendors.js -->
                                 <select id="d-state" required></select>
                             </label>
                             <label>
@@ -187,16 +274,16 @@
                     </fieldset>
 
                     <div class="form-buttons">
-                        <button type="submit" id="distributor-submit">Add distributor</button>
-                        <button type="button" id="distributor-cancel" class="secondary" hidden>Cancel</button>
+                        <button type="submit" id="vendor-submit">Add vendor</button>
+                        <button type="button" id="vendor-cancel" class="secondary" hidden>Cancel</button>
                     </div>
                 </form>
             </section>
 
             <section class="card">
-                <h2>Your distributors</h2>
-                <p id="distributor-empty" class="empty">No distributors yet. Add one above.</p>
-                <ul id="distributor-list" class="item-list"></ul>
+                <h2>Your vendors</h2>
+                <p id="vendor-empty" class="empty">No vendors yet. Add one above.</p>
+                <ul id="vendor-list" class="item-list"></ul>
             </section>
         </div>
 

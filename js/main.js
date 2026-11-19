@@ -7,15 +7,17 @@
 
 // Borrow functions from the other files
 import { onChange } from "./storage.js";
-import { initDistributors, renderDistributors } from "./distributors.js";
-import { initItems, renderItems } from "./items.js";
+import { initVendors, renderVendors } from "./vendors.js";
+import { initIngredients, renderIngredients } from "./ingredients.js";
+import { initProducts, renderProducts } from "./products.js";
 import { initRecipes, renderRecipes } from "./recipes.js";
 
 
 // Redraw every screen (screens depend on each other, so redraw them all)
 function renderAll() {
-    renderDistributors();
-    renderItems();
+    renderVendors();
+    renderIngredients();
+    renderProducts();
     renderRecipes();
 }
 
@@ -46,8 +48,9 @@ function initTabs() {
 // ===== Start up (runs as soon as the file loads) =====
 
 initTabs();
-initDistributors();
-initItems();
+initVendors();
+initIngredients();
+initProducts();
 initRecipes();
 
 // After every save, run renderAll (no parentheses = hand it over, don't run it yet)

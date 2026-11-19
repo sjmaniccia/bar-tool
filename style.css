@@ -270,3 +270,92 @@ button.small {
         grid-column: 1 / -1;
     }
 }
+
+
+/* ----- Ingredients ----- */
+
+.ingredient {
+    display: grid;
+    gap: 8px;
+    padding: 16px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.ingredient:last-child {
+    border-bottom: none;
+}
+
+/* One buying option: item, distributor, cost per unit, tags */
+.option {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 0.9rem;
+    border-top: 1px solid #f2efea;
+}
+
+/* Tag colors: house choice and cheapest option */
+.tag.house {
+    background: #1f2a2e;
+    color: #fff;
+}
+
+.tag.cheapest {
+    background: #d8ecd2;
+    color: #1f4d17;
+}
+
+/* Which-item dropdown on a recipe line */
+select.choice {
+    margin-top: 4px;
+    font-size: 0.85rem;
+    padding: 4px 8px;
+    width: auto;
+}
+
+/* Conversion row: [1] [each] = [1/4] [lb] [Add] */
+.conversion-form {
+    display: grid;
+    grid-template-columns: 50px 1fr auto 60px 1fr auto;
+    gap: 6px;
+    align-items: center;
+}
+
+.conversion-form input,
+.conversion-form select {
+    font-size: 0.9rem;
+    padding: 6px;
+}
+
+
+/* ----- Products ----- */
+
+.product {
+    display: grid;
+    gap: 8px;
+    padding: 16px 0;
+    border-bottom: 1px solid #eee;
+}
+
+.product:last-child {
+    border-bottom: none;
+}
+
+/* Each format sits indented under its product, with purchase units under it */
+.format {
+    margin-left: 12px;
+    padding-left: 12px;
+    border-left: 3px solid #e6e1da;
+    border-radius: 0;
+}
+
+.format-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+}
+
+p.details {
+    margin-top: 0;
+}
