@@ -14,7 +14,7 @@ import {
 // ----- Available categories -----
 export const CATEGORIES = [
     "Liquor", "Wine", "Beer", "Mixer", "Produce", "Meat", "Seafood",
-    "Dairy", "Dry goods", "Brewing", "Paper Products", "Other"
+    "Dairy", "Dry goods", "Brewing", "Paper products", "Other"
 ];
 
 
