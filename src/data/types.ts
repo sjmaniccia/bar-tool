@@ -14,6 +14,9 @@ export interface Vendor {
     zip: string;
     repName: string;
     repPhone: string;
+    repEmail: string;
+    orderDays: string;     // "Tue & Fri", when they deliver
+    notes: string;
 }
 
 // What a recipe asks for ("Vodka", "Lime juice")
@@ -54,6 +57,7 @@ export interface Format {
     sizeUnit: string;
     packaging: string;
     yieldPercent: number;
+    par: number | null;    // how many of these (bottles, bags...) to keep on hand
 }
 
 // HOW you buy it: a case of 6 from RNDC (orders and prices use these)
@@ -103,6 +107,92 @@ export interface RecipeLine {
     unit: string;
 }
 
+// ===== Stock counts =====
+
+// Where things are kept: "Back bar", "Walk-in"
+export interface Area {
+    id: string;
+    name: string;
+}
+
+export type CountStatus = "open" | "closed";
+
+// One stock count (usually weekly or monthly)
+export interface StockCount {
+    id: string;
+    name: string;
+    countedAt: string;
+    status: CountStatus;
+}
+
+// How much of one format is in one area: whole cases + loose units (bottles can be 0.3)
+export interface CountLine {
+    id: string;
+    countId: string;
+    areaId: string | null;
+    formatId: string;
+    cases: number;
+    units: number;
+}
+
+
+// ===== Purchasing =====
+
+export type OrderStatus = "draft" | "sent" | "received";
+
+export interface Order {
+    id: string;
+    vendorId: string;
+    status: OrderStatus;
+    createdAt: string;
+    note: string;
+}
+
+export interface OrderLine {
+    id: string;
+    orderId: string;
+    purchaseUnitId: string;
+    quantity: number;
+}
+
+// unreconciled = just entered, reconciled = checked against the delivery, approved = prices recorded
+export type InvoiceStatus = "unreconciled" | "reconciled" | "approved";
+
+export interface Invoice {
+    id: string;
+    vendorId: string;
+    orderId: string | null;
+    number: string;
+    invoiceDate: string;
+    status: InvoiceStatus;
+    note: string;
+}
+
+export interface InvoiceLine {
+    id: string;
+    invoiceId: string;
+    purchaseUnitId: string;
+    quantity: number;
+    unitPrice: number;     // price per purchase unit on the paper invoice
+}
+
+
+// ===== Menus =====
+
+export interface Menu {
+    id: string;
+    name: string;
+    description: string;
+}
+
+export interface MenuItem {
+    id: string;
+    menuId: string;
+    recipeId: string;
+    sortOrder: number;
+}
+
+
 // Every table together
 export interface Database {
     vendors: Vendor[];
@@ -114,4 +204,13 @@ export interface Database {
     priceEntries: PriceEntry[];
     recipes: Recipe[];
     recipeLines: RecipeLine[];
+    areas: Area[];
+    stockCounts: StockCount[];
+    countLines: CountLine[];
+    orders: Order[];
+    orderLines: OrderLine[];
+    invoices: Invoice[];
+    invoiceLines: InvoiceLine[];
+    menus: Menu[];
+    menuItems: MenuItem[];
 }

@@ -1,13 +1,12 @@
 // ===== storage.ts =====
 // Holds all the app's data and saves it in the browser.
 // Same idea as before: change `db`, then call commit() to save and redraw.
-// The old app (at /legacy) uses the same saved data, so both stay in sync.
 
 import { useSyncExternalStore } from "react";
 import type { Database } from "./types";
 import { makeId } from "./utils";
 
-// Name the data is saved under (shared with the old app)
+// Name the data is saved under (kept from earlier versions so nothing is lost)
 const STORAGE_KEY = "barTool.data.v3";
 
 function emptyData(): Database {
@@ -20,7 +19,16 @@ function emptyData(): Database {
         purchaseUnits: [],
         priceEntries: [],
         recipes: [],
-        recipeLines: []
+        recipeLines: [],
+        areas: [],
+        stockCounts: [],
+        countLines: [],
+        orders: [],
+        orderLines: [],
+        invoices: [],
+        invoiceLines: [],
+        menus: [],
+        menuItems: []
     };
 }
 
@@ -157,6 +165,14 @@ function upgradeToProducts(old: OldSave) {
 
 // Give older rows any fields added later (all start empty)
 function fillNewFields(old: OldSave) {
+    for (const vendor of old.vendors ?? []) {
+        vendor.repEmail ??= "";
+        vendor.orderDays ??= "";
+        vendor.notes ??= "";
+    }
+    for (const format of old.formats ?? []) {
+        format.par ??= null;
+    }
     for (const ingredient of old.ingredients ?? []) {
         ingredient.housePurchaseUnitId ??= null;
         ingredient.houseRecipeId ??= null;
@@ -211,7 +227,7 @@ export function replaceAll(data: Database) {
     commit();
 }
 
-// WHEN the old app (open in another tab) saves, reload so both match
+// WHEN the app is open in another tab and saves there, reload so both match
 if (typeof window !== "undefined") {
     window.addEventListener("storage", (event) => {
         if (event.key === STORAGE_KEY) {

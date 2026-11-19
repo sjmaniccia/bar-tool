@@ -1,0 +1,154 @@
+// ===== InvoiceDetail.tsx =====
+// One invoice, checked line by line against the delivery.
+//     Type each line's quantity and price as printed on the paper invoice.
+//     A price that differs from what you had is flagged (up in red, down in green).
+//     Reconciled = checked against what showed up. Approve = record the prices and lock it.
+
+import { useState } from "react";
+import { Link, useNavigate, useParams } from "react-router";
+import { useDb } from "../data/storage";
+import {
+    addInvoiceLine, approveInvoice, deleteInvoice, invoiceTotal, removeInvoiceLine,
+    setInvoiceStatus, updateInvoice, updateInvoiceLine
+} from "../data/purchasing";
+import { buyName, unitsFromVendor } from "../data/library";
+import { formatOf, formatName, productOf } from "../data/costing";
+import { currentPrice } from "../data/prices";
+import { findById, formatDate, formatMoney, formatPercent } from "../data/utils";
+import type { PurchaseUnit } from "../data/types";
+import AmountInput from "../components/AmountInput";
+import TextInput from "../components/TextInput";
+import Status from "../components/Status";
+
+function itemName(unit: PurchaseUnit): string {
+    const format = formatOf(unit);
+    return (productOf(unit)?.name ?? "?") + (format ? " " + formatName(format) : "");
+}
+
+export default function InvoiceDetail() {
+    const db = useDb();
+    const navigate = useNavigate();
+    const { invoiceId } = useParams();
+    const invoice = findById(db.invoices, invoiceId ?? null);
+    const [adding, setAdding] = useState("");
+
+    if (invoice === null) {
+        return (
+            <div className="page">
+                <h1>Invoice not found</h1>
+                <Link to="/invoices">← Invoices</Link>
+            </div>
+        );
+    }
+
+    const vendor = findById(db.vendors, invoice.vendorId);
+    const lines = db.invoiceLines.filter((l) => l.invoiceId === invoice.id);
+    const locked = invoice.status === "approved";
+    const order = findById(db.orders, invoice.orderId);
+    // Lines whose price is different from the current one (these get recorded on approval)
+    const changes = lines.filter((l) => Math.abs(l.unitPrice - currentPrice(l.purchaseUnitId)) >= 0.005).length;
+
+    function approve() {
+        const message = changes === 0
+            ? "Approve this invoice? No prices changed."
+            : "Approve this invoice? " + changes + (changes === 1 ? " price" : " prices") + " will be updated, and recipe costs will follow.";
+        if (!confirm(message)) return;
+        approveInvoice(invoice!.id);
+    }
+
+    function remove() {
+        if (!confirm("Delete this invoice? Prices already recorded stay.")) return;
+        deleteInvoice(invoice!.id);
+        navigate("/invoices");
+    }
+
+    return (
+        <div className="page">
+            <Link to="/invoices" className="back">← Invoices</Link>
+            <div className="page-header">
+                <div>
+                    <h1>{vendor?.companyName ?? "Invoice"}{invoice.number && " #" + invoice.number}</h1>
+                    <div className="tags">
+                        <Status status={invoice.status} />
+                        <span className="tag">{formatDate(invoice.invoiceDate)}</span>
+                        <span className="tag house">{formatMoney(invoiceTotal(invoice.id))}</span>
+                        {order && <Link to={"/orders/" + order.id} className="tag">from order of {formatDate(order.createdAt)}</Link>}
+                    </div>
+                </div>
+                <div className="button-row">
+                    {invoice.status === "unreconciled" && <button className="secondary" onClick={() => setInvoiceStatus(invoice.id, "reconciled")}>Mark reconciled</button>}
+                    {invoice.status === "reconciled" && <button className="secondary" onClick={() => setInvoiceStatus(invoice.id, "unreconciled")}>Mark unreconciled</button>}
+                    {!locked && <button onClick={approve} disabled={lines.length === 0}>Approve</button>}
+                    <button className="danger" onClick={remove}>Delete</button>
+                </div>
+            </div>
+
+            {locked ? (
+                <section className="card">Approved. Its prices are now the current prices for these items.</section>
+            ) : (
+                <section className="card">
+                    <div className="form-grid">
+                        <label className="form-field"><span>Invoice number</span>
+                            <TextInput value={invoice.number} placeholder="From the paper invoice" onSave={(number) => updateInvoice(invoice.id, { number })} /></label>
+                        <label className="form-field"><span>Invoice date</span>
+                            <TextInput type="date" value={invoice.invoiceDate} required onSave={(invoiceDate) => updateInvoice(invoice.id, { invoiceDate })} /></label>
+                        <label className="form-field span-2"><span>Note</span>
+                            <TextInput value={invoice.note} placeholder="Shorts, breakage, credits owed…" onSave={(note) => updateInvoice(invoice.id, { note })} /></label>
+                    </div>
+                    {/* FIXME: scan a photo of the paper invoice to fill the lines in */}
+                </section>
+            )}
+
+            <section className="card table-card">
+                <h2>Lines</h2>
+                {lines.length === 0 ? <p className="card-pad muted">No lines yet.</p> : (
+                    <div className="table-scroll">
+                        <table className="table">
+                            <thead>
+                                <tr><th>Item</th><th>Qty</th><th>Unit price</th><th className="num">Was</th><th className="num">Total</th>{!locked && <th></th>}</tr>
+                            </thead>
+                            <tbody>
+                                {lines.map((line) => {
+                                    const unit = findById(db.purchaseUnits, line.purchaseUnitId);
+                                    if (unit === null) return null;
+                                    const was = currentPrice(unit.id);
+                                    const diff = was > 0 ? (line.unitPrice - was) / was : 0;
+                                    const changed = !locked && Math.abs(line.unitPrice - was) >= 0.005;
+                                    return (
+                                        <tr key={line.id}>
+                                            <td>{itemName(unit)}<div className="muted small">{buyName(unit)}</div></td>
+                                            <td>{locked ? line.quantity : <AmountInput value={line.quantity} className="qty-input" ariaLabel="Quantity"
+                                                onSave={(v) => v !== null && updateInvoiceLine(line.id, { quantity: v })} />}</td>
+                                            <td>{locked ? formatMoney(line.unitPrice) : <AmountInput value={line.unitPrice} money className="qty-input wide" ariaLabel="Unit price"
+                                                onSave={(v) => v !== null && updateInvoiceLine(line.id, { unitPrice: v })} />}</td>
+                                            <td className="num">
+                                                {was > 0 ? formatMoney(was) : "—"}
+                                                {changed && was > 0 && (
+                                                    <div className={"small " + (diff > 0 ? "warn" : "good")}>{diff > 0 ? "▲ " : "▼ "}{formatPercent(Math.abs(diff))}</div>
+                                                )}
+                                            </td>
+                                            <td className="num">{formatMoney(line.quantity * line.unitPrice)}</td>
+                                            {!locked && <td className="num"><button className="danger icon-button" aria-label="Remove" onClick={() => removeInvoiceLine(line.id)}>✕</button></td>}
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                            <tfoot>
+                                <tr><td colSpan={4}><strong>Total</strong></td><td className="num"><strong>{formatMoney(invoiceTotal(invoice.id))}</strong></td>{!locked && <td></td>}</tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                )}
+                {!locked && (
+                    <div className="add-line card-pad">
+                        <select value={adding} aria-label="Add line" onChange={(e) => setAdding(e.target.value)}>
+                            <option value="">Add something {vendor?.companyName} sells…</option>
+                            {unitsFromVendor(invoice.vendorId).map((u) => <option key={u.id} value={u.id}>{itemName(u)} · {buyName(u)}</option>)}
+                        </select>
+                        <button className="secondary" disabled={adding === ""} onClick={() => { addInvoiceLine(invoice.id, adding); setAdding(""); }}>Add</button>
+                    </div>
+                )}
+            </section>
+        </div>
+    );
+}

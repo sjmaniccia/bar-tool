@@ -70,8 +70,8 @@
     --accent-hover: #c7324a;
     --on-accent: #ffffff;
     --accent-soft: #3f1c22;
-    --accent-soft-text: #f6b9c0;
-    --link: #f08a95;
+    --accent-soft-text: #e2b65c;
+    --link: #e2b65c;
     --gilt: #e2b65c;
     --gilt-text: #e2b65c;
     --green: #7dbfa3;
@@ -101,8 +101,8 @@
         --accent-hover: #c7324a;
         --on-accent: #ffffff;
         --accent-soft: #3f1c22;
-        --accent-soft-text: #f6b9c0;
-        --link: #f08a95;
+        --accent-soft-text: #e2b65c;
+        --link: #e2b65c;
         --gilt: #e2b65c;
         --gilt-text: #e2b65c;
         --green: #7dbfa3;
@@ -497,6 +497,141 @@ textarea { resize: vertical; }
 }
 
 
+/* ----- Forms edited in place (product, vendor, count details) ----- */
+
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 16px;
+    margin-bottom: 14px;
+}
+.form-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.form-field { display: grid; gap: 4px; align-content: start; }
+.form-field > span:first-child { font-size: 0.84rem; font-weight: 600; color: var(--muted); }
+.form-field strong { padding-top: 8px; }
+.span-2 { grid-column: span 2; }
+@media (max-width: 900px) {
+    .form-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 600px) {
+    .form-grid, .form-grid.four { grid-template-columns: 1fr; }
+    .span-2 { grid-column: auto; }
+}
+
+.card-header { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.card-pad { padding: 0 22px 22px; }
+.table-card .card-pad:first-of-type { padding-top: 0; }
+h3 { font-family: var(--serif); font-size: 1.1rem; font-weight: 600; margin: 18px 0 10px; }
+
+.sub-card {
+    border: 1px solid var(--border-soft);
+    background: var(--surface-2);
+    border-radius: 6px;
+    padding: 14px 16px;
+}
+.sub-card h3 { margin-top: 0; }
+
+.plain-list { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.plain-list li { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.row-edit input { max-width: 320px; }
+
+/* A button that looks like a link: "make house", "history", "remove" */
+.link-button {
+    background: none;
+    border: none;
+    padding: 0 4px;
+    color: var(--link);
+    font-size: 0.84rem;
+    font-weight: 600;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+.link-button:hover { background: none; color: var(--accent-hover); }
+
+/* A link styled like a secondary button: Email, Call, Spec book */
+a.button.secondary-link { background: transparent; color: var(--text); border-color: var(--border); }
+a.button.secondary-link:hover { background: var(--hover); border-color: var(--input-border); }
+
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.narrow { max-width: 140px; }
+.qty-input.wide { width: 100px; }
+.nowrap { white-space: nowrap; }
+.good { color: var(--green); }
+
+.table.compact td { padding: 8px 10px; vertical-align: middle; }
+.table.compact th { padding: 9px 10px; }
+.table tfoot td { border-top: 1px solid var(--border); background: var(--surface-2); }
+.history-row td { background: var(--surface-2); }
+.history { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.history li { display: flex; gap: 14px; align-items: center; font-size: 0.92rem; }
+
+/* Status badges: active (still to do), waiting, done */
+.status {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 99px;
+    padding: 2px 10px;
+    border: 1px solid transparent;
+}
+.status-active { background: var(--accent-soft); color: var(--accent-soft-text); }
+.status-waiting { background: transparent; color: var(--gilt-text); border-color: var(--gilt); }
+.status-done { background: color-mix(in srgb, var(--green) 16%, transparent); color: var(--green); }
+
+/* Tabs (areas on a count sheet) */
+.tab-row { display: flex; gap: 6px; flex-wrap: wrap; border-bottom: 1px solid var(--border); }
+.tab {
+    background: transparent;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 0;
+    color: var(--muted);
+    padding: 10px 14px;
+    margin-bottom: -1px;
+}
+.tab:hover { background: transparent; color: var(--text); }
+.tab.active { color: var(--text); border-bottom-color: var(--gilt); }
+.count-sheet tr.counted td:first-child { box-shadow: inset 3px 0 0 var(--gilt); }
+
+/* Dashboard to-do list */
+.todo { list-style: none; margin: 0; padding: 0; }
+.todo li {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 0;
+    border-bottom: 1px solid var(--border-soft);
+}
+.todo li:last-child { border-bottom: none; }
+
+/* The order written out for the rep */
+.order-text {
+    white-space: pre-wrap;
+    font: inherit;
+    font-size: 0.9rem;
+    background: var(--surface-2);
+    border: 1px solid var(--border-soft);
+    border-radius: 6px;
+    padding: 12px;
+    margin: 0 0 12px;
+}
+
+/* Columns that only fit on a bigger screen */
+@media (max-width: 700px) {
+    .hide-phone { display: none; }
+    .page-header .add-line { width: 100%; }
+}
+
+/* Spec book */
+.spec h2 { margin-bottom: 8px; }
+.spec-meta { display: flex; gap: 22px; flex-wrap: wrap; margin-bottom: 12px; }
+.spec-build { list-style: none; padding: 0; margin: 0 0 12px; display: grid; gap: 4px; }
+.spec-build li { display: grid; grid-template-columns: 110px 1fr; gap: 10px; }
+.spec-amount { font-weight: 600; }
+
+
 /* ----- Printing: just the recipe, always black on white ----- */
 
 @media print {
@@ -511,4 +646,6 @@ textarea { resize: vertical; }
     input, select { border: none; padding: 0; }
     .stat.price { background: none; border: 1px solid #000; }
     .stat.price .stat-label, .stat.price .stat-input { color: #000; }
+    .spec { break-inside: avoid; page-break-inside: avoid; border-bottom: 1px solid #ccc !important; }
+    .status, .tag { border: 1px solid #999; background: none; color: #000; }
 }

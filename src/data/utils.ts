@@ -104,3 +104,21 @@ export function formatFraction(amount: number): string {
     }
     return formatAmount(amount);
 }
+
+
+// ===== Dates =====
+
+// Today as "2026-11-19" (local time, for date boxes)
+export function today(): string {
+    const d = new Date();
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+// "2026-11-19" or a full timestamp -> "Nov 19, 2026"
+export function formatDate(value: string): string {
+    if (!value) return "—";
+    // A bare date is read as local midnight so it doesn't shift a day
+    const date = value.length === 10 ? new Date(value + "T00:00:00") : new Date(value);
+    if (isNaN(date.getTime())) return value;
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}

@@ -5,6 +5,7 @@
 //     #/                 Dashboard
 //     #/recipes          Recipe list
 //     #/recipes/<id>     One recipe
+//     ...and the same pattern for products, ingredients, vendors, counts, orders, invoices, menus
 // The # keeps everything on one real page, which GitHub Pages needs.
 
 import { StrictMode } from "react";
@@ -15,7 +16,21 @@ import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import RecipesList from "./pages/RecipesList";
 import RecipeDetail from "./pages/RecipeDetail";
-import ClassicScreen from "./pages/ClassicScreen";
+import ProductsList from "./pages/ProductsList";
+import ProductDetail from "./pages/ProductDetail";
+import IngredientsList from "./pages/IngredientsList";
+import IngredientDetail from "./pages/IngredientDetail";
+import VendorsList from "./pages/VendorsList";
+import VendorDetail from "./pages/VendorDetail";
+import CountsList from "./pages/CountsList";
+import CountDetail from "./pages/CountDetail";
+import OrdersList from "./pages/OrdersList";
+import OrderDetail from "./pages/OrderDetail";
+import InvoicesList from "./pages/InvoicesList";
+import InvoiceDetail from "./pages/InvoiceDetail";
+import MenusList from "./pages/MenusList";
+import MenuDetail from "./pages/MenuDetail";
+import SpecBook from "./pages/SpecBook";
 import NotFound from "./pages/NotFound";
 // Fonts are bundled with the app (no outside requests): Playfair Display for headings, DM Sans for text
 import "@fontsource/playfair-display/600.css";
@@ -38,10 +53,21 @@ const router = createHashRouter([
             { index: true, element: <Dashboard /> },
             { path: "recipes", element: <RecipesList /> },
             { path: "recipes/:recipeId", element: <RecipeDetail /> },   // :recipeId is filled from the address
-            // Not rebuilt yet: these open the classic screens, which share the same data
-            { path: "products", element: <ClassicScreen name="Products" /> },
-            { path: "ingredients", element: <ClassicScreen name="Ingredients" /> },
-            { path: "vendors", element: <ClassicScreen name="Vendors" /> },
+            { path: "products", element: <ProductsList /> },
+            { path: "products/:productId", element: <ProductDetail /> },
+            { path: "ingredients", element: <IngredientsList /> },
+            { path: "ingredients/:ingredientId", element: <IngredientDetail /> },
+            { path: "vendors", element: <VendorsList /> },
+            { path: "vendors/:vendorId", element: <VendorDetail /> },
+            { path: "counts", element: <CountsList /> },
+            { path: "counts/:countId", element: <CountDetail /> },
+            { path: "orders", element: <OrdersList /> },
+            { path: "orders/:orderId", element: <OrderDetail /> },
+            { path: "invoices", element: <InvoicesList /> },
+            { path: "invoices/:invoiceId", element: <InvoiceDetail /> },
+            { path: "menus", element: <MenusList /> },
+            { path: "menus/:menuId", element: <MenuDetail /> },
+            { path: "menus/:menuId/specs", element: <SpecBook /> },
             { path: "*", element: <NotFound /> }
         ]
     }

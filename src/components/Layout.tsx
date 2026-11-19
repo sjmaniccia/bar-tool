@@ -18,25 +18,36 @@ function ProofMark() {
     );
 }
 
-// The sidebar's sections and links (soon: not built yet)
+// The sidebar's sections and links (soon = not built yet)
 const SECTIONS = [
     { title: "Home", links: [{ to: "/", label: "Dashboard", end: true }] },
-    { title: "Recipes", links: [{ to: "/recipes", label: "All Recipes" }] },
+    {
+        title: "Recipes",
+        links: [
+            { to: "/recipes", label: "All Recipes" },
+            { to: "/menus", label: "Menus" }
+        ]
+    },
     {
         title: "Inventory",
         links: [
             { to: "/products", label: "Products" },
             { to: "/ingredients", label: "Ingredients" },
+            { to: "/counts", label: "Stock counts" }
+        ]
+    },
+    {
+        title: "Purchasing",
+        links: [
+            { to: "/orders", label: "Orders" },
+            { to: "/invoices", label: "Invoices" },
             { to: "/vendors", label: "Vendors" }
         ]
     },
     {
         title: "Coming soon",
         links: [
-            { label: "Ordering", soon: true },
-            { label: "Invoices", soon: true },
-            { label: "Stock Count", soon: true },
-            { label: "Menus", soon: true }
+            { label: "Team & accounts", soon: true }
         ]
     }
 ];

@@ -31,15 +31,23 @@ src/
     types.ts       the shape of every table (matches the ERD)
     storage.ts     saving, loading, upgrading old saves
     costing.ts     every cost calculation
-    actions.ts     every change the screens can make
-    units.ts, prices.ts, utils.ts
-    costing.test.ts
-  components/    pieces of screens (layout, inputs, recipe sections)
+    actions.ts     recipe changes
+    library.ts     products, formats, ways to buy, prices, vendors, ingredients
+    inventory.ts   storage areas, stock counts, on hand, inventory value
+    purchasing.ts  orders, suggestions from pars, invoices, approving prices
+    menus.ts       menus and their averages
+    units.ts, prices.ts, utils.ts, sampleData.ts
+    costing.test.ts, operations.test.ts
+  components/    pieces of screens (layout, inputs, status badges, recipe sections)
   pages/         one file per screen
-public/legacy/   the original screens, still used for Products, Ingredients and Vendors
 ```
 
 ## Status
 - ✅ Recipes: list, detail page, costing summary, labor, ingredients table
-- 🔜 Products, Ingredients, Vendors: being rebuilt (the classic screens work meanwhile)
-- 🔜 Ordering, invoices, stock counts, menus
+- ✅ Products library: families, formats, ways to buy, price history, pars
+- ✅ Ingredients (sources, house choice, conversions) and Vendors (company, rep, ordering)
+- ✅ Stock counts: storage areas, cases + loose units, inventory value
+- ✅ Ordering from pars, receiving into invoices, approving invoices updates prices
+- ✅ Menus with average cost and profit, printable spec book
+- 🔜 Accounts, staff roles and a shared database (data lives in one browser for now)
+- 🔜 Phone app, invoice scanning
