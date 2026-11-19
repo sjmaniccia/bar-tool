@@ -26,6 +26,7 @@
     --on-accent: #ffffff;
     --accent-soft: #f4dedf;
     --accent-soft-text: #741624;
+    --nav-active-text: #741624;
     --link: #8a1c2b;
 
     --gilt: #b8892e;            /* gold hairlines and highlights */
@@ -70,7 +71,8 @@
     --accent-hover: #c7324a;
     --on-accent: #ffffff;
     --accent-soft: #3f1c22;
-    --accent-soft-text: #e2b65c;
+    --accent-soft-text: #f6b9c0;     /* rose: only tags and status badges */
+    --nav-active-text: #e2b65c;
     --link: #e2b65c;
     --gilt: #e2b65c;
     --gilt-text: #e2b65c;
@@ -101,7 +103,8 @@
         --accent-hover: #c7324a;
         --on-accent: #ffffff;
         --accent-soft: #3f1c22;
-        --accent-soft-text: #e2b65c;
+        --accent-soft-text: #f6b9c0;     /* rose: only tags and status badges */
+        --nav-active-text: #e2b65c;
         --link: #e2b65c;
         --gilt: #e2b65c;
         --gilt-text: #e2b65c;
@@ -210,7 +213,7 @@ h2 { font-size: 1.3rem; font-weight: 600; margin: 0 0 14px; }
 .nav-link:hover { background: var(--hover); }
 .nav-link.active {
     background: var(--accent-soft);
-    color: var(--accent-soft-text);
+    color: var(--nav-active-text);
     font-weight: 600;
     box-shadow: inset 3px 0 0 var(--gilt);   /* gold marker on the left */
 }
