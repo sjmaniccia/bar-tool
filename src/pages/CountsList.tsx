@@ -9,9 +9,12 @@ import { countTotals, createArea, createCount, deleteArea, latestClosedCount, re
 import { formatDate, formatMoney } from "../data/utils";
 import TextInput from "../components/TextInput";
 import Status from "../components/Status";
+import { useSession } from "../cloud/session";
+import { canEdit } from "../cloud/access";
 
 export default function CountsList() {
     const db = useDb();
+    const managing = canEdit(useSession().bar?.role ?? null);   // staff count, managers set up areas
     const navigate = useNavigate();
     const counts = [...db.stockCounts].sort((a, b) => b.countedAt.localeCompare(a.countedAt));
     const latest = latestClosedCount();
@@ -72,7 +75,7 @@ export default function CountsList() {
                 )}
             </section>
 
-            <AreasCard />
+            {managing && <AreasCard />}
         </div>
     );
 }

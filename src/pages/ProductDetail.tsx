@@ -1,7 +1,7 @@
 // ===== ProductDetail.tsx =====
 // One product, edited in place:
-//     details        name, family, category, producer, ABV, which ingredient it counts as
-//     formats        each way it's packed (1 L bottle), with its par and what's on hand
+//     details        name, family, category, producer, ABV, which ingredient it counts as, tasting notes
+//     formats        each way it's packed (1 L bottle), with its par, barcode and what's on hand
 //         ways to buy   each purchase unit (case of 12 from a vendor), price, price history
 
 import { useState } from "react";
@@ -128,6 +128,11 @@ function DetailsCard({ product, ingredientName, onIngredient }: { product: Produ
             <p className="muted small">
                 Recipes ask for ingredients ("White rum"). Linking this product lets recipes cost it.
             </p>
+            <label className="form-field">
+                <span>Tasting notes</span>
+                <TextInput multiline value={product.notes} placeholder="What it tastes like, where it's from, what to tell a guest. Shows up in Training."
+                    onSave={(notes) => update({ notes })} />
+            </label>
         </section>
     );
 }
@@ -177,6 +182,10 @@ function FormatCard({ format, product }: { format: Format; product: Product }) {
                 <label className="form-field">
                     <span>Par ({word}s to keep)</span>
                     <AmountInput value={format.par} allowBlank placeholder="None" onSave={(par) => update({ par })} />
+                </label>
+                <label className="form-field">
+                    <span>Barcode (UPC)</span>
+                    <TextInput value={format.barcode} placeholder="Scan or type it" onSave={(barcode) => update({ barcode: barcode.trim() })} />
                 </label>
                 <div className="form-field">
                     <span>On hand</span>

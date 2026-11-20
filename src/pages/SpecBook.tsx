@@ -8,11 +8,16 @@ import { useDb } from "../data/storage";
 import { menuRows } from "../data/menus";
 import { linesFor } from "../data/costing";
 import { findById, formatFraction } from "../data/utils";
+import { useSession } from "../cloud/session";
+import { canEdit } from "../cloud/access";
 
 export default function SpecBook() {
     const db = useDb();
     const { menuId } = useParams();
     const menu = findById(db.menus, menuId ?? null);
+    const session = useSession();
+    // Staff come here from Spec books; managers from the menu
+    const back = canEdit(session.bar?.role ?? null) && menu ? { to: "/menus/" + menu.id, label: menu.name } : { to: "/specs", label: "Spec books" };
 
     if (menu === null) {
         return (
@@ -27,7 +32,7 @@ export default function SpecBook() {
 
     return (
         <div className="page spec-book">
-            <Link to={"/menus/" + menu.id} className="back no-print">← {menu.name}</Link>
+            <Link to={back.to} className="back no-print">← {back.label}</Link>
             <div className="page-header">
                 <div>
                     <h1>{menu.name}</h1>

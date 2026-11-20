@@ -27,7 +27,13 @@ jobs:
                   cache: npm
             - run: npm ci
             - run: npm test
+            # The Supabase address and publishable key come from repo variables
+            # (Settings > Secrets and variables > Actions > Variables). Without them
+            # the site still builds and runs on each visitor's device only.
             - run: npm run build
+              env:
+                  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+                  VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
             - uses: actions/upload-pages-artifact@v5
               with:
                   path: dist

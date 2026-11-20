@@ -5,7 +5,7 @@
 
 export type Theme = "light" | "dark";
 
-const KEY = "proof.theme";
+const KEY = "agave.theme";
 
 // The theme the person picked, or null if they never picked one
 function savedTheme(): Theme | null {

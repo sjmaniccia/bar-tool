@@ -40,28 +40,29 @@ export function sampleData(): Database {
             { id: "i-lime", name: "Lime", housePurchaseUnitId: null, houseRecipeId: null },
             { id: "i-sugar", name: "Sugar", housePurchaseUnitId: null, houseRecipeId: null },
             { id: "i-limejuice", name: "Lime juice", housePurchaseUnitId: null, houseRecipeId: "r-limejuice" },
-            { id: "i-syrup", name: "Simple syrup", housePurchaseUnitId: null, houseRecipeId: null }
+            { id: "i-syrup", name: "Simple syrup", housePurchaseUnitId: null, houseRecipeId: null },
+            { id: "i-lager", name: "Lager", housePurchaseUnitId: null, houseRecipeId: null }
         ],
         ingredientConversions: [],
         products: [
-            { id: "p-rum", ingredientId: "i-rum", name: "Island White Rum", family: "Spirits", category: "Rum", subcategory: "White", producer: "", abv: 40 },
-            { id: "p-tequila", ingredientId: "i-tequila", name: "Highland Blanco Tequila", family: "Spirits", category: "Tequila", subcategory: "Blanco", producer: "", abv: 40 },
-            { id: "p-orange", ingredientId: "i-orange", name: "Triple Orange Liqueur", family: "Spirits", category: "Liqueur", subcategory: "", producer: "", abv: 30 },
-            { id: "p-lime", ingredientId: "i-lime", name: "Limes", family: "Produce", category: "Citrus", subcategory: "", producer: "", abv: null },
-            { id: "p-sugar", ingredientId: "i-sugar", name: "Granulated Sugar", family: "Dry goods", category: "Sweeteners", subcategory: "", producer: "", abv: null },
-            { id: "p-limejuice", ingredientId: "i-limejuice", name: "Bottled Lime Juice", family: "Non-alcoholic", category: "Juice", subcategory: "", producer: "", abv: null },
-            { id: "p-lager", ingredientId: null, name: "Lookout Valley Lager", family: "Beer", category: "Lager", subcategory: "Draft", producer: "Lookout Valley Brewing", abv: 4.8 },
-            { id: "p-red", ingredientId: null, name: "House Red Blend", family: "Wine", category: "Red", subcategory: "Blend", producer: "", abv: 13.5 }
+            { id: "p-rum", ingredientId: "i-rum", name: "Island White Rum", family: "Spirits", category: "Rum", subcategory: "White", producer: "", abv: 40, notes: "Light and clean, with a little vanilla and cut grass. Our well rum." },
+            { id: "p-tequila", ingredientId: "i-tequila", name: "Highland Blanco Tequila", family: "Spirits", category: "Tequila", subcategory: "Blanco", producer: "", abv: 40, notes: "100% agave from the highlands. Bright citrus and black pepper, a little sweet cooked agave." },
+            { id: "p-orange", ingredientId: "i-orange", name: "Triple Orange Liqueur", family: "Spirits", category: "Liqueur", subcategory: "", producer: "", abv: 30, notes: "Dry orange peel liqueur. Sweet but not syrupy; the orange in our Margarita." },
+            { id: "p-lime", ingredientId: "i-lime", name: "Limes", family: "Produce", category: "Citrus", subcategory: "", producer: "", abv: null, notes: "" },
+            { id: "p-sugar", ingredientId: "i-sugar", name: "Granulated Sugar", family: "Dry goods", category: "Sweeteners", subcategory: "", producer: "", abv: null, notes: "" },
+            { id: "p-limejuice", ingredientId: "i-limejuice", name: "Bottled Lime Juice", family: "Non-alcoholic", category: "Juice", subcategory: "", producer: "", abv: null, notes: "" },
+            { id: "p-lager", ingredientId: "i-lager", name: "Lookout Valley Lager", family: "Beer", category: "Lager", subcategory: "Draft", producer: "Lookout Valley Brewing", abv: 4.8, notes: "Local crisp lager: light malt, a little bread crust, clean finish. Brewed 10 minutes away." },
+            { id: "p-red", ingredientId: null, name: "House Red Blend", family: "Wine", category: "Red", subcategory: "Blend", producer: "", abv: 13.5, notes: "Soft red blend: ripe cherry and plum, light tannin. Easy with burgers and pizza." }
         ],
         formats: [
-            { id: "f-rum", productId: "p-rum", unitSize: 1000, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: 18 },
-            { id: "f-tequila", productId: "p-tequila", unitSize: 750, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: 12 },
-            { id: "f-orange", productId: "p-orange", unitSize: 750, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: 6 },
-            { id: "f-lime", productId: "p-lime", unitSize: 1, sizeUnit: "each", packaging: "lime", yieldPercent: 100, par: 200 },
-            { id: "f-sugar", productId: "p-sugar", unitSize: 4, sizeUnit: "lb", packaging: "bag", yieldPercent: 100, par: 6 },
-            { id: "f-limejuice", productId: "p-limejuice", unitSize: 1, sizeUnit: "L", packaging: "bottle", yieldPercent: 100, par: 6 },
-            { id: "f-lager", productId: "p-lager", unitSize: 0.5, sizeUnit: "barrel", packaging: "keg", yieldPercent: 95, par: 2 },
-            { id: "f-red", productId: "p-red", unitSize: 750, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: 12 }
+            { id: "f-rum", productId: "p-rum", unitSize: 1000, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: 18, barcode: "850001234561" },
+            { id: "f-tequila", productId: "p-tequila", unitSize: 750, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: 12, barcode: "" },
+            { id: "f-orange", productId: "p-orange", unitSize: 750, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: 6, barcode: "" },
+            { id: "f-lime", productId: "p-lime", unitSize: 1, sizeUnit: "each", packaging: "lime", yieldPercent: 100, par: 200, barcode: "" },
+            { id: "f-sugar", productId: "p-sugar", unitSize: 4, sizeUnit: "lb", packaging: "bag", yieldPercent: 100, par: 6, barcode: "" },
+            { id: "f-limejuice", productId: "p-limejuice", unitSize: 1, sizeUnit: "L", packaging: "bottle", yieldPercent: 100, par: 6, barcode: "" },
+            { id: "f-lager", productId: "p-lager", unitSize: 0.5, sizeUnit: "barrel", packaging: "keg", yieldPercent: 95, par: 2, barcode: "" },
+            { id: "f-red", productId: "p-red", unitSize: 750, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: 12, barcode: "" }
         ],
         purchaseUnits: [
             { id: "pu-rum-case", formatId: "f-rum", vendorId: "v-sg", name: "case", unitAmount: 12, sku: "" },
@@ -109,6 +110,11 @@ export function sampleData(): Database {
                 id: "r-margarita", name: "Margarita", menuPrice: 12, laborWage: 20, laborMinutes: 1,
                 glass: "Rocks", garnish: "Salt rim, lime wheel",
                 directions: "Shake with ice and strain over fresh ice into a salt-rimmed rocks glass."
+            }),
+            recipe({
+                id: "r-lager", name: "Lager Pint", type: "Beer", menuPrice: 6, laborWage: null, laborMinutes: null,
+                glass: "Pint", garnish: "",
+                directions: "Pour at a 45-degree angle, straighten for the last third to leave a one-inch head."
             })
         ],
         recipeLines: [
@@ -120,18 +126,30 @@ export function sampleData(): Database {
             { id: "l-6", recipeId: "r-margarita", ingredientId: "i-tequila", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 2, unit: "fl oz" },
             { id: "l-7", recipeId: "r-margarita", ingredientId: "i-orange", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz" },
             { id: "l-8", recipeId: "r-margarita", ingredientId: "i-limejuice", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz" },
-            { id: "l-9", recipeId: "r-margarita", ingredientId: "i-syrup", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 0.5, unit: "fl oz" }
+            { id: "l-9", recipeId: "r-margarita", ingredientId: "i-syrup", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 0.5, unit: "fl oz" },
+            { id: "l-10", recipeId: "r-lager", ingredientId: "i-lager", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 16, unit: "fl oz" }
         ],
         areas: [
             { id: "a-backbar", name: "Back bar" },
             { id: "a-walkin", name: "Walk-in" },
             { id: "a-dry", name: "Dry storage" }
         ],
+        // Two finished counts a week apart, so the variance report has a period to show
         stockCounts: [
+            { id: "c-0", name: "Weekly count", countedAt: "2026-11-08", status: "closed" },
             { id: "c-1", name: "Weekly count", countedAt: "2026-11-15", status: "closed" }
         ],
         // Below par on purpose (rum, tequila, orange, limes, sugar) so ordering has suggestions
         countLines: [
+            { id: "cl-01", countId: "c-0", areaId: "a-backbar", formatId: "f-rum", cases: 0, units: 6 },
+            { id: "cl-02", countId: "c-0", areaId: "a-dry", formatId: "f-rum", cases: 1, units: 0 },
+            { id: "cl-03", countId: "c-0", areaId: "a-backbar", formatId: "f-tequila", cases: 0, units: 10 },
+            { id: "cl-04", countId: "c-0", areaId: "a-backbar", formatId: "f-orange", cases: 0, units: 7 },
+            { id: "cl-05", countId: "c-0", areaId: "a-walkin", formatId: "f-lime", cases: 0, units: 200 },
+            { id: "cl-06", countId: "c-0", areaId: "a-dry", formatId: "f-sugar", cases: 0, units: 3 },
+            { id: "cl-07", countId: "c-0", areaId: "a-walkin", formatId: "f-limejuice", cases: 1, units: 0 },
+            { id: "cl-08", countId: "c-0", areaId: "a-walkin", formatId: "f-lager", cases: 0, units: 3 },
+            { id: "cl-09", countId: "c-0", areaId: "a-dry", formatId: "f-red", cases: 1, units: 3 },
             { id: "cl-1", countId: "c-1", areaId: "a-backbar", formatId: "f-rum", cases: 0, units: 3.4 },
             { id: "cl-2", countId: "c-1", areaId: "a-dry", formatId: "f-rum", cases: 1, units: 0 },
             { id: "cl-3", countId: "c-1", areaId: "a-backbar", formatId: "f-tequila", cases: 0, units: 2.5 },
@@ -144,14 +162,41 @@ export function sampleData(): Database {
         ],
         orders: [],
         orderLines: [],
-        invoices: [],
-        invoiceLines: [],
+        // Deliveries between the two counts (already approved, so prices are current)
+        invoices: [
+            { id: "inv-1", vendorId: "v-sg", orderId: null, number: "SG-47710", invoiceDate: "2026-11-10", status: "approved", note: "" },
+            { id: "inv-2", vendorId: "v-rndc", orderId: null, number: "R-88213", invoiceDate: "2026-11-10", status: "approved", note: "" },
+            { id: "inv-3", vendorId: "v-produce", orderId: null, number: "", invoiceDate: "2026-11-10", status: "approved", note: "" }
+        ],
+        invoiceLines: [
+            { id: "il-1", invoiceId: "inv-1", purchaseUnitId: "pu-rum-case", quantity: 1, unitPrice: 210 },
+            { id: "il-2", invoiceId: "inv-1", purchaseUnitId: "pu-orange", quantity: 1, unitPrice: 96 },
+            { id: "il-3", invoiceId: "inv-1", purchaseUnitId: "pu-lager", quantity: 1, unitPrice: 165 },
+            { id: "il-4", invoiceId: "inv-2", purchaseUnitId: "pu-tequila", quantity: 1, unitPrice: 300 },
+            { id: "il-5", invoiceId: "inv-3", purchaseUnitId: "pu-lime", quantity: 2, unitPrice: 40 },
+            { id: "il-6", invoiceId: "inv-3", purchaseUnitId: "pu-sugar", quantity: 1, unitPrice: 18 }
+        ],
         menus: [
             { id: "m-fall", name: "Fall Cocktails", description: "The seasonal list on the back of the menu." }
         ],
         menuItems: [
             { id: "mi-1", menuId: "m-fall", recipeId: "r-daiquiri", sortOrder: 1 },
             { id: "mi-2", menuId: "m-fall", recipeId: "r-margarita", sortOrder: 2 }
+        ],
+        // A week of POS sales: rum comes up short on purpose; the lager and gift card need matching
+        salesImports: [
+            { id: "s-1", name: "pos-sales-nov-9-15.csv", startDate: "2026-11-09", endDate: "2026-11-15", importedAt: DATE }
+        ],
+        salesLines: [
+            { id: "sl-1", importId: "s-1", itemName: "Daiquiri", quantity: 200, revenue: 2200, recipeId: "r-daiquiri" },
+            { id: "sl-2", importId: "s-1", itemName: "Margarita", quantity: 230, revenue: 2760, recipeId: "r-margarita" },
+            { id: "sl-3", importId: "s-1", itemName: "Lookout Lager Pint", quantity: 180, revenue: 1080, recipeId: null },
+            { id: "sl-4", importId: "s-1", itemName: "Gift Card", quantity: 3, revenue: 75, recipeId: null }
+        ],
+        posLinks: [],
+        wasteEntries: [
+            { id: "w-1", date: "2026-11-12", kind: "product", formatId: "f-tequila", recipeId: null, quantity: 1, reason: "breakage", note: "Dropped during restock" },
+            { id: "w-2", date: "2026-11-14", kind: "recipe", formatId: null, recipeId: "r-daiquiri", quantity: 3, reason: "comp", note: "Birthday table" }
         ]
     };
 }

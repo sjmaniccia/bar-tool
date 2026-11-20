@@ -8,7 +8,9 @@ import { sampleData } from "../data/sampleData";
 import { countTotals, latestClosedCount } from "../data/inventory";
 import { invoiceTotal, suggestions } from "../data/purchasing";
 import { missingPrices } from "../data/costing";
-import { formatDate, formatMoney } from "../data/utils";
+import { findById, formatAmount, plural, formatDate, formatMoney, formatPercent } from "../data/utils";
+import { latestShortages, recipesOverTarget } from "../data/alerts";
+import { formatLabel, unitWord } from "../data/inventory";
 
 export default function Dashboard() {
     const db = useDb();   // redraws whenever data changes
@@ -18,6 +20,8 @@ export default function Dashboard() {
     const waitingInvoices = db.invoices.filter((i) => i.status !== "approved");
     const openCounts = db.stockCounts.filter((c) => c.status === "open");
     const draftOrders = db.orders.filter((o) => o.status === "draft");
+    const overTarget = recipesOverTarget();
+    const shortages = latestShortages();
     const missing = db.recipes.filter((r) => {
         try {
             return missingPrices(r.id).length > 0;
@@ -37,7 +41,27 @@ export default function Dashboard() {
             action: "Approve"
         },
         openCounts.length > 0 && { to: "/counts/" + openCounts[0].id, text: openCounts.length + (openCounts.length === 1 ? " count is" : " counts are") + " still open", action: "Finish" },
-        missing.length > 0 && { to: "/recipes", text: missing.length + (missing.length === 1 ? " recipe is" : " recipes are") + " missing prices", action: "Fix" }
+        missing.length > 0 && { to: "/recipes", text: missing.length + (missing.length === 1 ? " recipe is" : " recipes are") + " missing prices", action: "Fix" },
+        overTarget.length > 0 && {
+            to: "/recipes/" + overTarget[0].id,
+            text: (overTarget.length === 1 ? overTarget[0].name + " is" : overTarget.length + " recipes are") + " over target cost",
+            action: "Review"
+        },
+        shortages.unmatched > 0 && {
+            to: "/sales",
+            text: shortages.unmatched + (shortages.unmatched === 1 ? " item" : " items") + " from your POS " + (shortages.unmatched === 1 ? "isn't" : "aren't") + " matched to a recipe yet",
+            action: "Match"
+        },
+        ...shortages.products.slice(0, 3).map((s) => {
+            const format = findById(db.formats, s.formatId);
+            const missing = Math.round(s.missing * 10) / 10;
+            return {
+                to: "/reports",
+                text: (format ? formatLabel(format) : "A product") + ": " + (format ? plural(missing, unitWord(format)) : formatAmount(missing) + " units")
+                    + " short (" + formatMoney(s.dollars) + ", " + formatPercent(s.share) + ")",
+                action: "Investigate"
+            };
+        })
     ].filter((t) => t !== false);
 
     const stats = [

@@ -3,8 +3,13 @@
 //     one tab per area: type unopened cases + loose units for each product
 //     Summary tab: totals across areas, against par, with the value
 // Finishing the count makes it the "on hand" used by products and ordering.
+//
+// Faster counting:
+//     OPEN BOTTLES   tap the bottle drawing to add a partial (in tenths)
+//     BARCODES       a scanner types the code into search + Enter -> adds one of that product here
+//     CAMERA         same thing with the phone camera, where the browser supports it
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useDb } from "../data/storage";
 import {
@@ -12,10 +17,13 @@ import {
 } from "../data/inventory";
 import { FAMILIES } from "../data/library";
 import { findById, formatAmount, formatDate, formatMoney } from "../data/utils";
+import { familyOf } from "../data/units";
 import type { Format } from "../data/types";
 import TextInput from "../components/TextInput";
 import AmountInput from "../components/AmountInput";
 import Status from "../components/Status";
+import FillPicker from "../components/FillPicker";
+import BarcodeScanner, { cameraScanAvailable } from "../components/BarcodeScanner";
 
 const SUMMARY = "summary";
 
@@ -27,6 +35,10 @@ export default function CountDetail() {
     const [tab, setTab] = useState<string>(db.areas[0]?.id ?? "none");
     const [search, setSearch] = useState("");
     const [family, setFamily] = useState("");
+    const [pickerFor, setPickerFor] = useState<string | null>(null);   // which row's bottle picker is open
+    const [scanning, setScanning] = useState(false);
+    const [scanNote, setScanNote] = useState<{ text: string; ok: boolean } | null>(null);
+    const [flashId, setFlashId] = useState<string | null>(null);       // the row just scanned, highlighted
 
     if (count === null) {
         return (
@@ -49,9 +61,30 @@ export default function CountDetail() {
     const formats = db.formats
         .map((format) => ({ format, product: findById(db.products, format.productId) }))
         .filter(({ product }) => product !== null)
-        .filter(({ product }) => wanted === "" || product!.name.toLowerCase().includes(wanted))
+        .filter(({ format, product }) => wanted === "" || product!.name.toLowerCase().includes(wanted) || (format.barcode !== "" && format.barcode === wanted))
         .filter(({ product }) => family === "" || product!.family === family)
         .sort((a, b) => a.product!.family.localeCompare(b.product!.family) || a.product!.name.localeCompare(b.product!.name));
+
+    // A barcode was scanned (by a scanner typing into search, or the camera)
+    //     IF the count is finished, or we're on the Summary tab, say so
+    //     IF no format has that barcode, say how to add it
+    //     ELSE add one loose unit of it in this area, and highlight the row
+    function scan(code: string) {
+        const trimmed = code.trim();
+        if (trimmed === "") return;
+        const format = db.formats.find((f) => f.barcode !== "" && f.barcode === trimmed) ?? null;
+        if (locked) return setScanNote({ text: "This count is finished. Reopen it to keep counting.", ok: false });
+        if (tab === SUMMARY) return setScanNote({ text: "Pick an area tab first, then scan.", ok: false });
+        if (format === null) {
+            return setScanNote({ text: "No product has barcode " + trimmed + ". Add it to the product's format, then scan again.", ok: false });
+        }
+        const line = findCountLine(count!.id, areaId, format.id);
+        const units = (line?.units ?? 0) + 1;
+        setCount(count!.id, areaId, format.id, line?.cases ?? 0, units);
+        setSearch("");
+        setFlashId(format.id);
+        setScanNote({ text: formatLabel(format) + ": " + formatAmount(units) + " loose here", ok: true });
+    }
 
     function remove() {
         if (!confirm("Delete this count?")) return;
@@ -103,7 +136,12 @@ export default function CountDetail() {
             </div>
 
             <div className="toolbar no-print">
-                <input type="search" placeholder="Search products…" value={search} onChange={(e) => setSearch(e.target.value)} />
+                <input type="search" placeholder="Search or scan a barcode…" value={search} aria-label="Search or scan"
+                    onChange={(e) => setSearch(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter" && /^\d{6,}$/.test(search.trim())) scan(search); }} />
+                {!locked && cameraScanAvailable() && !scanning && (
+                    <button className="secondary" onClick={() => setScanning(true)}>Scan with camera</button>
+                )}
                 <label className="inline-label">
                     Family
                     <select value={family} onChange={(e) => setFamily(e.target.value)}>
@@ -112,6 +150,9 @@ export default function CountDetail() {
                     </select>
                 </label>
             </div>
+
+            {scanNote && <p className={"scan-note no-print " + (scanNote.ok ? "success" : "error")} role="status">{scanNote.text}</p>}
+            {scanning && <BarcodeScanner onScan={scan} onClose={() => setScanning(false)} />}
 
             {formats.length === 0 ? (
                 <section className="card empty">
@@ -135,7 +176,9 @@ export default function CountDetail() {
                             <tbody>
                                 {formats.map(({ format }) => (
                                     <CountRow key={format.id} countId={count.id} areaId={areaId} format={format}
-                                        total={totals.units.get(format.id) ?? 0} locked={locked} />
+                                        total={totals.units.get(format.id) ?? 0} locked={locked} flash={flashId === format.id}
+                                        pickerOpen={pickerFor === format.id}
+                                        onPicker={(open) => setPickerFor(open ? format.id : null)} />
                                 ))}
                             </tbody>
                         </table>
@@ -155,17 +198,26 @@ interface RowProps {
     format: Format;
     total: number;
     locked: boolean;
+    flash: boolean;                       // just scanned
+    pickerOpen: boolean;
+    onPicker: (open: boolean) => void;
 }
 
-function CountRow({ countId, areaId, format, total, locked }: RowProps) {
+function CountRow({ countId, areaId, format, total, locked, flash, pickerOpen, onPicker }: RowProps) {
     const line = findCountLine(countId, areaId, format.id);
     const size = caseSize(format.id);
     const cases = line?.cases ?? 0;
     const units = line?.units ?? 0;
     const word = unitWord(format);
+    // Split loose units into full bottles + the open one: 3.4 -> 3 full, 0.4 open
+    const whole = Math.floor(units + 0.001);
+    const open = Math.round((units - whole) * 10) / 10;
+    // Only liquids come in partial bottles (not "each" limes)
+    const pourable = familyOf(format.sizeUnit) === "volume";
 
     return (
-        <tr className={line ? "counted" : ""}>
+        <Fragment>
+        <tr className={(line ? "counted" : "") + (flash ? " just-scanned" : "")}>
             <td>
                 <strong>{formatLabel(format)}</strong>
                 {size > 1 && <div className="muted small">case = {size} {word}s</div>}
@@ -182,10 +234,36 @@ function CountRow({ countId, areaId, format, total, locked }: RowProps) {
                     : <AmountInput value={line ? units : null} allowBlank placeholder="0" className="qty-input" ariaLabel={"Loose " + word + "s"}
                         onSave={(v) => setCount(countId, areaId, format.id, cases, v ?? 0)} />}
                 <span className="muted small"> {word}s</span>
+                {pourable && !locked && (
+                    <button className={"open-bottle" + (open > 0 ? " has-open" : "")} aria-label="Open bottle level" aria-expanded={pickerOpen}
+                        onClick={() => onPicker(!pickerOpen)}>
+                        <MiniBottle level={open} />{open > 0 ? "." + Math.round(open * 10) : "+ open"}
+                    </button>
+                )}
             </td>
             <td className="num hide-phone">{line ? formatAmount(lineUnits(line)) : "—"}</td>
             <td className="num hide-phone">{total > 0 ? formatAmount(total) : "—"}</td>
         </tr>
+        {pickerOpen && (
+            <tr className="picker-row">
+                <td colSpan={5}>
+                    <FillPicker value={open}
+                        onPick={(level) => setCount(countId, areaId, format.id, cases, whole + level)}
+                        onClose={() => onPicker(false)} />
+                </td>
+            </tr>
+        )}
+        </Fragment>
+    );
+}
+
+// A tiny bottle icon filled to the open bottle's level
+function MiniBottle({ level }: { level: number }) {
+    return (
+        <svg viewBox="0 0 12 20" className="mini-bottle" aria-hidden="true">
+            <rect x="2" y={18 - level * 12} width="8" height={level * 12} className="mini-liquid" />
+            <path d="M4.5 1 h3 v4 l2.5 3 v10 h-8 v-10 l2.5 -3 z" className="mini-outline" />
+        </svg>
     );
 }
 
@@ -216,7 +294,7 @@ function SummaryTable({ formats, totals }: { formats: Format[]; totals: Map<stri
                             return (
                                 <tr key={format.id}>
                                     <td><Link to={"/products/" + format.productId}>{formatLabel(format)}</Link></td>
-                                    <td className={"num" + (low ? " warn" : "")}>{formatAmount(have)} {unitWord(format)}s</td>
+                                    <td className={"num" + (low ? " warn" : "")}>{formatAmount(have)} {unitWord(format)}{have === 1 ? "" : "s"}</td>
                                     <td className="num">{format.par === null ? "—" : formatAmount(format.par)}</td>
                                     <td className="num">{cost === null ? "—" : formatMoney(cost)}</td>
                                     <td className="num">{value === null ? "—" : formatMoney(value)}</td>

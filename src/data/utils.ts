@@ -25,9 +25,15 @@ export function findById<T extends { id: string }>(table: T[], id: string | null
     return null;
 }
 
-// 22.9 -> "$22.90"
+// 22.9 -> "$22.90", 6115 -> "$6,115.00", -0.25 -> "-$0.25"
 export function formatMoney(amount: number): string {
-    return "$" + amount.toFixed(2);
+    const text = Math.abs(amount).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    return (amount < -0.004 ? "-$" : "$") + text;
+}
+
+// 1 -> "1 bottle", 2.5 -> "2.5 bottles"
+export function plural(amount: number, word: string): string {
+    return formatAmount(amount) + " " + word + (Math.abs(amount - 1) < 0.001 ? "" : "s");
 }
 
 // 0.2251 -> "22.5%"

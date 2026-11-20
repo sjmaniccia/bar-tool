@@ -10,6 +10,7 @@ import { caseSize, countTotals, onHand, setCount, createCount, unitCost } from "
 import { approveInvoice, createSuggestedOrders, receiveOrder, suggestions, invoiceTotal } from "./purchasing";
 import { menuStats, addToMenu, moveItem, itemsOf } from "./menus";
 import { findById } from "./utils";
+import { importSales, linkPosItem, matchRecipe, varianceReport } from "./variance";
 
 beforeEach(() => {
     Object.assign(db, sampleData());
@@ -91,5 +92,55 @@ describe("menus", () => {
         expect(itemsOf("m-fall").length).toBe(2);
         moveItem("mi-2", -1);
         expect(itemsOf("m-fall")[0].recipeId).toBe("r-margarita");
+    });
+});
+
+describe("variance (sold vs used)", () => {
+    const ML_PER_OZ = 29.5735;
+
+    test("rum: 200 Daiquiris sold, 3 comped, 14.6 bottles gone", () => {
+        const report = varianceReport("c-0", "c-1")!;
+        const rum = report.rows.find((r) => r.formatId === "f-rum")!;
+        expect(rum.actual).toBeCloseTo(18 + 12 - 15.4);                 // opening + delivered - closing
+        expect(rum.theoretical).toBeCloseTo(200 * 2 * ML_PER_OZ / 1000); // 2 fl oz per drink, 1 L bottles
+        expect(rum.waste).toBeCloseTo(3 * 2 * ML_PER_OZ / 1000);
+        expect(rum.variance).toBeCloseTo(2.59, 1);                       // about 2.6 bottles missing
+    });
+
+    test("limes come through the fresh lime juice prep", () => {
+        const report = varianceReport("c-0", "c-1")!;
+        const limes = report.rows.find((r) => r.formatId === "f-lime")!;
+        // 430 drinks × 1 fl oz juice; 10 limes make 8 fl oz (the 3 comped Daiquiris count as waste)
+        expect(limes.theoretical).toBeCloseTo(430 / 8 * 10);
+    });
+
+    test("matching a POS item fixes its variance and is remembered", () => {
+        const before = varianceReport("c-0", "c-1")!;
+        expect(before.unmatchedSales).toBe(2);
+        linkPosItem("Lookout Lager Pint", "r-lager");
+        linkPosItem("Gift Card", "ignore");
+        const after = varianceReport("c-0", "c-1")!;
+        expect(after.unmatchedSales).toBe(0);
+        expect(after.sales).toBe(2200 + 2760 + 1080);   // the gift card no longer counts as sales
+        const lager = after.rows.find((r) => r.formatId === "f-lager")!;
+        expect(lager.variance).toBeLessThan(0.1);
+        expect(matchRecipe("lookout lager pint").recipeId).toBe("r-lager");
+    });
+
+    test("pour cost = what was used ÷ sales", () => {
+        const report = varianceReport("c-0", "c-1")!;
+        expect(report.pourCost).toBeCloseTo(report.usedValue / report.sales);
+        expect(report.idealPourCost!).toBeLessThan(report.pourCost!);
+    });
+
+    test("imports add up the same item on several rows", () => {
+        const id = importSales("test.csv", "2026-11-16", "2026-11-22", [
+            { itemName: "Daiquiri", quantity: 10, revenue: 110 },
+            { itemName: "daiquiri ", quantity: 5, revenue: 55 }
+        ]);
+        const lines = db.salesLines.filter((l) => l.importId === id);
+        expect(lines.length).toBe(1);
+        expect(lines[0].quantity).toBe(15);
+        expect(lines[0].recipeId).toBe("r-daiquiri");
     });
 });

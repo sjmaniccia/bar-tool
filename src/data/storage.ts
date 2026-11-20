@@ -9,7 +9,7 @@ import { makeId } from "./utils";
 // Name the data is saved under (kept from earlier versions so nothing is lost)
 const STORAGE_KEY = "barTool.data.v3";
 
-function emptyData(): Database {
+export function emptyData(): Database {
     return {
         vendors: [],
         ingredients: [],
@@ -28,7 +28,11 @@ function emptyData(): Database {
         invoices: [],
         invoiceLines: [],
         menus: [],
-        menuItems: []
+        menuItems: [],
+        salesImports: [],
+        salesLines: [],
+        posLinks: [],
+        wasteEntries: []
     };
 }
 
@@ -172,6 +176,10 @@ function fillNewFields(old: OldSave) {
     }
     for (const format of old.formats ?? []) {
         format.par ??= null;
+        format.barcode ??= "";
+    }
+    for (const product of old.products ?? []) {
+        product.notes ??= "";
     }
     for (const ingredient of old.ingredients ?? []) {
         ingredient.housePurchaseUnitId ??= null;
@@ -211,14 +219,38 @@ function notify() {
     }
 }
 
+// Where commit() saves to.
+//     null = this browser only (no account, or the demo)
+//     a function = signed in: the cloud sync saves a local copy and sends changes to the server
+let saveHook: ((data: Database) => void) | null = null;
+
+export function setSaveHook(hook: ((data: Database) => void) | null) {
+    saveHook = hook;
+}
+
 // Save, then tell every screen to redraw
 export function commit() {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
-    } catch (error) {
-        console.log("Could not save data:", error);
+    if (saveHook !== null) {
+        saveHook(db);
+    } else {
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(db));
+        } catch (error) {
+            console.log("Could not save data:", error);
+        }
     }
     notify();
+}
+
+// Show different data without saving it (used when switching bars or receiving changes)
+export function showData(data: Database) {
+    Object.assign(db, data);
+    notify();
+}
+
+// The data saved in this browser without an account (the demo / before signing up)
+export function deviceData(): Database {
+    return loadData(readSaved());
 }
 
 // Replace everything with new data (used for "load sample data")
@@ -230,7 +262,7 @@ export function replaceAll(data: Database) {
 // WHEN the app is open in another tab and saves there, reload so both match
 if (typeof window !== "undefined") {
     window.addEventListener("storage", (event) => {
-        if (event.key === STORAGE_KEY) {
+        if (event.key === STORAGE_KEY && saveHook === null) {
             Object.assign(db, loadData(event.newValue));
             notify();
         }

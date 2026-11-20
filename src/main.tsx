@@ -5,14 +5,21 @@
 //     #/                 Dashboard
 //     #/recipes          Recipe list
 //     #/recipes/<id>     One recipe
-//     ...and the same pattern for products, ingredients, vendors, counts, orders, invoices, menus
+//     ...and the same pattern for products, ingredients, vendors, counts, orders, invoices, menus, sales
+//     #/reports          Variance report (what was sold vs what was used)
+//     #/waste            Waste log
+//     #/data             Backup, exports, products import
+//     #/training         Flashcards and quizzes from your recipes
+//     #/classics         Classic cocktail library
+//     #/specs            Spec books for every menu
+//     #/team             Team members, roles and invites (signed in)
 // The # keeps everything on one real page, which GitHub Pages needs.
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createHashRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
-import Layout from "./components/Layout";
+import Gate from "./components/Gate";
 import Dashboard from "./pages/Dashboard";
 import RecipesList from "./pages/RecipesList";
 import RecipeDetail from "./pages/RecipeDetail";
@@ -31,6 +38,16 @@ import InvoiceDetail from "./pages/InvoiceDetail";
 import MenusList from "./pages/MenusList";
 import MenuDetail from "./pages/MenuDetail";
 import SpecBook from "./pages/SpecBook";
+import SalesList from "./pages/SalesList";
+import SalesDetail from "./pages/SalesDetail";
+import VarianceReport from "./pages/VarianceReport";
+import WasteLog from "./pages/WasteLog";
+import DataPage from "./pages/DataPage";
+import Training from "./pages/Training";
+import Classics from "./pages/Classics";
+import SpecBooks from "./pages/SpecBooks";
+import Team from "./pages/Team";
+import { startSession } from "./cloud/session";
 import NotFound from "./pages/NotFound";
 // Fonts are bundled with the app (no outside requests): Playfair Display for headings, DM Sans for text
 import "@fontsource/playfair-display/600.css";
@@ -45,10 +62,21 @@ import { applySavedTheme } from "./theme";
 // Show a saved light/dark choice before the first draw (no flash)
 applySavedTheme();
 
+// Check who's signed in (does nothing if no Supabase project is set up)
+startSession();
+
+// Register the service worker so the app opens offline and can be installed
+//     Only in the built app: during `npm run dev` it would cache files you're still editing
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+        navigator.serviceWorker.register("./sw.js").catch((error) => console.log("Offline mode unavailable:", error));
+    });
+}
+
 const router = createHashRouter([
     {
         path: "/",
-        element: <Layout />,                 // sidebar + header around every page
+        element: <Gate />,                   // sign-in screens, or the sidebar + header around every page
         children: [
             { index: true, element: <Dashboard /> },
             { path: "recipes", element: <RecipesList /> },
@@ -68,6 +96,15 @@ const router = createHashRouter([
             { path: "menus", element: <MenusList /> },
             { path: "menus/:menuId", element: <MenuDetail /> },
             { path: "menus/:menuId/specs", element: <SpecBook /> },
+            { path: "sales", element: <SalesList /> },
+            { path: "sales/:importId", element: <SalesDetail /> },
+            { path: "reports", element: <VarianceReport /> },
+            { path: "waste", element: <WasteLog /> },
+            { path: "data", element: <DataPage /> },
+            { path: "training", element: <Training /> },
+            { path: "classics", element: <Classics /> },
+            { path: "specs", element: <SpecBooks /> },
+            { path: "team", element: <Team /> },
             { path: "*", element: <NotFound /> }
         ]
     }

@@ -47,6 +47,7 @@ export interface Product {
     subcategory: string;
     producer: string;
     abv: number | null;
+    notes: string;          // tasting notes and talking points for staff
 }
 
 // HOW it's packed: a 1.75 L bottle (inventory is counted in these)
@@ -58,6 +59,7 @@ export interface Format {
     packaging: string;
     yieldPercent: number;
     par: number | null;    // how many of these (bottles, bags...) to keep on hand
+    barcode: string;       // UPC on the bottle, for scanning during counts
 }
 
 // HOW you buy it: a case of 6 from RNDC (orders and prices use these)
@@ -177,6 +179,56 @@ export interface InvoiceLine {
 }
 
 
+// ===== Sales (from the POS) =====
+
+// One uploaded sales report covering a stretch of days
+export interface SalesImport {
+    id: string;
+    name: string;          // the file name
+    startDate: string;     // first day the report covers
+    endDate: string;       // last day it covers
+    importedAt: string;
+}
+
+// One item from the report: "Daiquiri, 214 sold, $2,354"
+export interface SalesLine {
+    id: string;
+    importId: string;
+    itemName: string;      // as the POS spells it
+    quantity: number;
+    revenue: number;
+    recipeId: string | null;   // matched recipe, null = not matched (or ignored)
+}
+
+// Remembers how a POS item name matches a recipe, so the next import matches itself
+//     recipeId null + ignored = "not a drink we track" (gift cards, merch...)
+export interface PosLink {
+    id: string;
+    posName: string;       // lowercase, trimmed
+    recipeId: string | null;
+    ignored: boolean;
+}
+
+
+// ===== Waste =====
+
+export type WasteReason = "spill" | "comp" | "breakage" | "expired" | "returned" | "other";
+
+// Something used up without being sold: a broken bottle, a comped drink
+//     product: units of a format (0.5 bottle)
+//     recipe:  servings of a recipe (2 Daiquiris comped)
+export interface WasteEntry {
+    id: string;
+    date: string;
+    kind: "product" | "recipe";
+    formatId: string | null;
+    recipeId: string | null;
+    quantity: number;
+    reason: WasteReason;
+    note: string;
+}
+
+
 // ===== Menus =====
 
 export interface Menu {
@@ -213,4 +265,8 @@ export interface Database {
     invoiceLines: InvoiceLine[];
     menus: Menu[];
     menuItems: MenuItem[];
+    salesImports: SalesImport[];
+    salesLines: SalesLine[];
+    posLinks: PosLink[];
+    wasteEntries: WasteEntry[];
 }

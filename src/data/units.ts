@@ -21,6 +21,8 @@ const UNITS: Record<string, UnitInfo> = {
     "L":       { family: "volume", toBase: 1000 },
     "tsp":     { family: "volume", toBase: 4.92892 },    // teaspoon
     "Tbsp":    { family: "volume", toBase: 14.7868 },    // tablespoon = 3 tsp
+    "dash":    { family: "volume", toBase: 0.92 },       // bitters dash, about 1/32 fl oz
+    "barspoon": { family: "volume", toBase: 5 },         // about 1 tsp
     "fl oz":   { family: "volume", toBase: 29.5735 },
     "cup":     { family: "volume", toBase: 236.588 },
     "pint":    { family: "volume", toBase: 473.176 },

@@ -1,4 +1,4 @@
-# Proof
+# Agave
 
 Recipe costing and inventory for bars, kitchens and breweries. (Repo: bar-tool)
 
@@ -10,9 +10,21 @@ Recipe costing and inventory for bars, kitchens and breweries, built by a former
 - Compares vendors: the same bottle as a single or by the case, from different distributors
 - Unit conversions, including per-ingredient ones (1 lemon = 1/4 lb)
 - Product library: product → format → purchase unit, like a real ordering workflow
+- Variance: imports POS sales (any CSV), then shows what was sold vs what was used, in dollars
+- Waste log, and alerts when a new invoice price pushes a recipe over its target cost
+- Training: flashcards and quizzes built from the bar's own specs, plus a classic cocktail library
+- Faster counts: tap a bottle drawing for open bottles, scan barcodes with a scanner or the camera
+- Backup and restore, CSV exports, and a products spreadsheet import
+- Installable and works offline (a walk-in cooler has no Wi-Fi)
+- Accounts and teams (Supabase): owner, manager and staff roles enforced by the database,
+  syncing between devices with offline changes sent when the connection is back
 
 ## Built with
-React 19, TypeScript 7, Vite 8, React Router 8, Vitest. Deployed to GitHub Pages with GitHub Actions.
+React 19, TypeScript 7, Vite 8, React Router 8, Vitest. Supabase (Postgres, Auth, Realtime)
+with Row Level Security. Deployed to GitHub Pages with GitHub Actions.
+
+Accounts are optional: see [SETUP-SUPABASE.md](SETUP-SUPABASE.md). Without them, Agave runs
+entirely in the browser.
 
 ## Running it locally
 Needs Node.js 22.22 or newer.
@@ -36,10 +48,27 @@ src/
     inventory.ts   storage areas, stock counts, on hand, inventory value
     purchasing.ts  orders, suggestions from pars, invoices, approving prices
     menus.ts       menus and their averages
+    usage.ts       turns sales into bottles used (follows preps and sub-recipes)
+    variance.ts    sales imports, POS matching, waste log, the variance report
+    alerts.ts      over-target recipes, invoice price impact, shortages
+    csv.ts         reading and writing CSV files
+    backup.ts      backup/restore, exports, products spreadsheet import
+    training.ts    flashcards and quiz questions
+    classics.ts    the classic cocktail library
     units.ts, prices.ts, utils.ts, sampleData.ts
-    costing.test.ts, operations.test.ts
+    *.test.ts      the tests
+  cloud/         accounts and syncing
+    client.ts      the Supabase connection
+    session.ts     sign in/out, which bar is open
+    sync.ts        sends changes up, applies changes from other devices
+    records.ts     the diff/merge math (tested without a network)
+    access.ts      which pages each role can open
+    team.ts        members and invites
   components/    pieces of screens (layout, inputs, status badges, recipe sections)
   pages/         one file per screen
+supabase/
+  schema.sql       tables, roles and Row Level Security (run once in Supabase)
+  schema.test.ts   checks the security rules in a real Postgres (PGlite)
 ```
 
 ## Status
@@ -49,5 +78,9 @@ src/
 - ✅ Stock counts: storage areas, cases + loose units, inventory value
 - ✅ Ordering from pars, receiving into invoices, approving invoices updates prices
 - ✅ Menus with average cost and profit, printable spec book
-- 🔜 Accounts, staff roles and a shared database (data lives in one browser for now)
-- 🔜 Phone app, invoice scanning
+- ✅ Sales import, POS matching, variance report, waste log, cost alerts
+- ✅ Training (flashcards, quiz, tasting notes) and a classics library
+- ✅ Open-bottle picker, barcode scanning, backup/export/import, installable offline app
+- ✅ Accounts, teams with owner/manager/staff roles, multi-device sync, offline changes
+- 🔜 Invite emails, hiding costs from staff screens
+- 🔜 Invoice photo scanning, direct POS connections (Toast, Square)

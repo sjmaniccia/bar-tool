@@ -28,7 +28,7 @@ export const FAMILIES = [
 export function createProduct(name: string, family = "Spirits"): string {
     const product: Product = {
         id: makeId(), ingredientId: null, name: name.trim() || "New product",
-        family, category: "", subcategory: "", producer: "", abv: null
+        family, category: "", subcategory: "", producer: "", abv: null, notes: ""
     };
     db.products.push(product);
     db.formats.push(newFormat(product.id));
@@ -67,7 +67,7 @@ export function deleteProduct(productId: string): boolean {
 // ===== Formats =====
 
 function newFormat(productId: string): Format {
-    return { id: makeId(), productId, unitSize: 750, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: null };
+    return { id: makeId(), productId, unitSize: 750, sizeUnit: "ml", packaging: "bottle", yieldPercent: 100, par: null, barcode: "" };
 }
 
 export function addFormat(productId: string) {

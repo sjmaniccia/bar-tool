@@ -8,6 +8,9 @@ export default defineConfig({
     // "./" makes every link relative, so the built site works at
     // sjmaniccia.github.io/bar-tool/ (a subfolder) on GitHub Pages
     base: "./",
+    // The whole app is one ~500 kB file (145 kB zipped), fine for a tool people install once
+    // FIXME: split big pages into separate files with lazy() if it keeps growing
+    build: { chunkSizeWarningLimit: 800 },
     test: {
         environment: "node"
     }

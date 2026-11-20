@@ -19,6 +19,7 @@ import type { PurchaseUnit } from "../data/types";
 import AmountInput from "../components/AmountInput";
 import TextInput from "../components/TextInput";
 import Status from "../components/Status";
+import { costChanges, snapshotCosts, type CostChange } from "../data/alerts";
 
 function itemName(unit: PurchaseUnit): string {
     const format = formatOf(unit);
@@ -31,6 +32,8 @@ export default function InvoiceDetail() {
     const { invoiceId } = useParams();
     const invoice = findById(db.invoices, invoiceId ?? null);
     const [adding, setAdding] = useState("");
+    // What approving changed (shown once, right after approval)
+    const [impact, setImpact] = useState<CostChange[] | null>(null);
 
     if (invoice === null) {
         return (
@@ -53,7 +56,10 @@ export default function InvoiceDetail() {
             ? "Approve this invoice? No prices changed."
             : "Approve this invoice? " + changes + (changes === 1 ? " price" : " prices") + " will be updated, and recipe costs will follow.";
         if (!confirm(message)) return;
+        // Take a snapshot of recipe costs, approve, then show what moved
+        const before = snapshotCosts();
         approveInvoice(invoice!.id);
+        setImpact(costChanges(before));
     }
 
     function remove() {
@@ -84,7 +90,25 @@ export default function InvoiceDetail() {
             </div>
 
             {locked ? (
-                <section className="card">Approved. Its prices are now the current prices for these items.</section>
+                <section className="card">
+                    <p>Approved. Its prices are now the current prices for these items.</p>
+                    {impact !== null && impact.length > 0 && (
+                        <>
+                            <h3>Recipe costs that moved</h3>
+                            <ul className="plain-list">
+                                {impact.map((c) => (
+                                    <li key={c.recipe.id}>
+                                        <Link to={"/recipes/" + c.recipe.id}>{c.recipe.name}</Link>
+                                        <span className={c.after > c.before ? "warn" : "good"}>{formatMoney(c.before)} → {formatMoney(c.after)}</span>
+                                        {c.ratio !== null && <span className="muted">{formatPercent(c.ratio)} of price</span>}
+                                        {c.overTarget && <span className="tag warn-tag">over target</span>}
+                                    </li>
+                                ))}
+                            </ul>
+                        </>
+                    )}
+                    {impact !== null && impact.length === 0 && <p className="muted small">No recipe costs changed.</p>}
+                </section>
             ) : (
                 <section className="card">
                     <div className="form-grid">
