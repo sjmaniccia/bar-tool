@@ -1,0 +1,7 @@
+# Supabase CLI settings for this project (only what Agave needs)
+project_id = "bar-tool"
+
+# Square sends owners back to this function after they approve Agave, and Square
+# can't sign in to Supabase, so the function checks sign-ins itself instead.
+[functions.square]
+verify_jwt = false

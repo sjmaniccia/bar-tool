@@ -3,7 +3,7 @@
 //     1. Pick the file -> the columns are guessed from their headers
 //     2. Check the guesses and the dates it covers
 //     3. Import -> items that match a recipe by name are matched; the rest you match once
-// Every POS can export this, so it works before any direct Toast or Square connection.
+// Every POS can export this. Square can also be connected directly (SquareCard), so sales come in by themselves.
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -11,6 +11,7 @@ import { useDb } from "../data/storage";
 import { findColumn, parseCsv, parseMoney } from "../data/csv";
 import { deleteSalesImport, importSales, isIgnored, type ParsedSale } from "../data/variance";
 import { formatDate, formatMoney, today } from "../data/utils";
+import SquareCard from "../components/SquareCard";
 
 interface Draft {
     fileName: string;
@@ -80,6 +81,8 @@ export default function SalesList() {
                     <p className="muted">Import what your POS sold. It's what turns counts into "sold vs used" on the <Link to="/reports">Variance</Link> report.</p>
                 </div>
             </div>
+
+            <SquareCard />
 
             <section className="card">
                 <h2>Import a sales report</h2>

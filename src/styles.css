@@ -813,6 +813,8 @@ td.warn, .num.warn { color: var(--danger); font-weight: 600; }
     .topbar-right { gap: 8px; }
 }
 
+.pos-card .pos-next { margin: 12px 0 0; padding-top: 10px; border-top: 1px solid var(--border); }
+
 @media print {
     :root, :root[data-theme] {
         --bg: #ffffff; --surface: #ffffff; --surface-2: #ffffff;

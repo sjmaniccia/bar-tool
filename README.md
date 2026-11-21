@@ -18,12 +18,13 @@ Recipe costing and inventory for bars, kitchens and breweries, built by a former
 - Installable and works offline (a walk-in cooler has no Wi-Fi)
 - Accounts and teams (Supabase): owner, manager and staff roles enforced by the database,
   syncing between devices with offline changes sent when the connection is back
+- Square connection: daily sales come in by themselves (a Supabase Edge Function holds the keys)
 
 ## Built with
 React 19, TypeScript 7, Vite 8, React Router 8, Vitest. Supabase (Postgres, Auth, Realtime)
 with Row Level Security. Deployed to GitHub Pages with GitHub Actions.
 
-Accounts are optional: see [SETUP-SUPABASE.md](SETUP-SUPABASE.md). Without them, Agave runs
+Accounts are optional: see [SETUP-SUPABASE.md](SETUP-SUPABASE.md). Square: [SETUP-SQUARE.md](SETUP-SQUARE.md). Without them, Agave runs
 entirely in the browser.
 
 ## Running it locally
@@ -63,12 +64,16 @@ src/
     sync.ts        sends changes up, applies changes from other devices
     records.ts     the diff/merge math (tested without a network)
     access.ts      which pages each role can open
+    pos.ts         Square connect / sync from the app's side
     team.ts        members and invites
   components/    pieces of screens (layout, inputs, status badges, recipe sections)
   pages/         one file per screen
 supabase/
   schema.sql       tables, roles and Row Level Security (run once in Supabase)
   schema.test.ts   checks the security rules in a real Postgres (PGlite)
+  pos.sql          POS connection tables (keys readable only by the server)
+  functions/square the Square server function (connect, sync, disconnect)
+  square-test-sales.mjs  rings up fake sales in Square's sandbox
 ```
 
 ## Status
@@ -82,5 +87,6 @@ supabase/
 - ✅ Training (flashcards, quiz, tasting notes) and a classics library
 - ✅ Open-bottle picker, barcode scanning, backup/export/import, installable offline app
 - ✅ Accounts, teams with owner/manager/staff roles, multi-device sync, offline changes
-- 🔜 Invite emails, hiding costs from staff screens
-- 🔜 Invoice photo scanning, direct POS connections (Toast, Square)
+- ✅ Square connection with daily sales sync
+- 🔜 Toast connection, invite emails, hiding costs from staff screens
+- 🔜 Invoice photo scanning

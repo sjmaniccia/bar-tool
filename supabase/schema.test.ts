@@ -48,6 +48,7 @@ beforeAll(async () => {
     db = new PGlite();
     await db.exec(SUPABASE_STAND_IN);
     await db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("./pos.sql", import.meta.url), "utf8"));
     await db.exec(`
         insert into auth.users values
             ('${OWNER}', 'owner@bar.com', now()),
@@ -116,5 +117,25 @@ describe("records", () => {
         await as(OWNER, "insert into public.records (bar_id, kind, id, data) values ($1, 'recipeLines', 'z', '{}'), ($1, 'recipeLines', 'a', '{}')", [barId]);
         const rows = await as(OWNER, "select id from public.records where kind = 'recipeLines' order by seq");
         expect(rows.rows.map((r) => r.id)).toEqual(["z", "a"]);
+    });
+});
+
+describe("POS connections", () => {
+    test("nobody in the app can read or write the keys", async () => {
+        // The server (here: the superuser, like Supabase's secret key) saves a connection
+        await db.exec(`insert into public.pos_connections (bar_id, provider, merchant_name, access_token)
+            values ('${barId}', 'square', 'Shady''s Square', 'EAAA-secret-token')`);
+        await expect(as(OWNER, "select access_token from public.pos_connections")).rejects.toThrow();
+        await expect(as(OWNER, "insert into public.pos_connections (bar_id, provider, access_token) values ($1, 'toast', 'x')", [barId])).rejects.toThrow();
+        await expect(as(OWNER, "select * from public.oauth_states")).rejects.toThrow();
+    });
+
+    test("members see connected or not, without keys; others see nothing", async () => {
+        const mine = await as(STAFF, "select * from public.pos_status($1)", [barId]);
+        expect(mine.rows).toHaveLength(1);
+        expect(mine.rows[0]).toMatchObject({ provider: "square", merchant_name: "Shady's Square" });
+        expect(Object.keys(mine.rows[0])).not.toContain("access_token");
+        const theirs = await as(STRANGER, "select * from public.pos_status($1)", [barId]);
+        expect(theirs.rows).toEqual([]);
     });
 });
