@@ -21,7 +21,7 @@ export default function MenusList() {
             </div>
 
             {db.menus.length === 0 ? (
-                <section className="card empty">No menus yet. Make one, or load sample data from the <Link to="/">Dashboard</Link>.</section>
+                <section className="card empty">No menus yet. Make one, or load sample data from the <Link to="/dashboard">Dashboard</Link>.</section>
             ) : (
                 <div className="card-grid">
                     {db.menus.map((menu) => {

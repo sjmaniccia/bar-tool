@@ -17,7 +17,7 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { createHashRouter } from "react-router";
+import { Navigate, createHashRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import Gate from "./components/Gate";
 import Dashboard from "./pages/Dashboard";
@@ -49,9 +49,7 @@ import SpecBooks from "./pages/SpecBooks";
 import Team from "./pages/Team";
 import { startSession } from "./cloud/session";
 import NotFound from "./pages/NotFound";
-// Fonts are bundled with the app (no outside requests): Playfair Display for headings, DM Sans for text
-import "@fontsource/playfair-display/600.css";
-import "@fontsource/playfair-display/700.css";
+// The font is bundled with the app (no outside requests): DM Sans for everything
 import "@fontsource/dm-sans/400.css";
 import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/600.css";
@@ -78,7 +76,8 @@ const router = createHashRouter([
         path: "/",
         element: <Gate />,                   // sign-in screens, or the sidebar + header around every page
         children: [
-            { index: true, element: <Dashboard /> },
+            { index: true, element: <Navigate to="/recipes" replace /> },   // recipes are the home page
+            { path: "dashboard", element: <Dashboard /> },
             { path: "recipes", element: <RecipesList /> },
             { path: "recipes/:recipeId", element: <RecipeDetail /> },   // :recipeId is filled from the address
             { path: "products", element: <ProductsList /> },

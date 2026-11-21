@@ -24,7 +24,6 @@ interface NavItem {
 
 // The sidebar's sections and links
 const SECTIONS: { title: string; links: NavItem[] }[] = [
-    { title: "Home", links: [{ to: "/", label: "Dashboard", end: true }] },
     {
         title: "Recipes",
         links: [
@@ -35,6 +34,7 @@ const SECTIONS: { title: string; links: NavItem[] }[] = [
             { to: "/classics", label: "Classics library" }
         ]
     },
+    { title: "Overview", links: [{ to: "/dashboard", label: "Dashboard" }] },
     {
         title: "Inventory",
         links: [
@@ -73,8 +73,8 @@ export default function Layout() {
     // WHEN the page changes, close the phone menu
     useEffect(() => setMenuOpen(false), [location.pathname]);
 
-    // Staff land on counting instead of the (cost-heavy) dashboard
-    if (role === "staff" && location.pathname === "/") return <Navigate to="/counts" replace />;
+    // Staff land on counting (recipes and the dashboard show costs)
+    if (role === "staff" && (location.pathname === "/" || location.pathname === "/recipes")) return <Navigate to="/counts" replace />;
 
     // Only show links this person can open; drop sections that end up empty
     const sections = SECTIONS

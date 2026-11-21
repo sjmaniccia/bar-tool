@@ -67,7 +67,7 @@ export default function ProductsList() {
             {rows.length === 0 ? (
                 <section className="card empty">
                     {db.products.length === 0
-                        ? <>No products yet. Add one, or load sample data from the <Link to="/">Dashboard</Link>.</>
+                        ? <>No products yet. Add one, or load sample data from the <Link to="/dashboard">Dashboard</Link>.</>
                         : "No products match those filters."}
                 </section>
             ) : (

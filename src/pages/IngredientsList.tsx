@@ -40,7 +40,7 @@ export default function IngredientsList() {
             {rows.length === 0 ? (
                 <section className="card empty">
                     {db.ingredients.length === 0
-                        ? <>No ingredients yet. They're added as you write recipes, or load sample data from the <Link to="/">Dashboard</Link>.</>
+                        ? <>No ingredients yet. They're added as you write recipes, or load sample data from the <Link to="/dashboard">Dashboard</Link>.</>
                         : "No ingredients match that search."}
                 </section>
             ) : (

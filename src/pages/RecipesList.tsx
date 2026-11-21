@@ -77,7 +77,7 @@ export default function RecipesList() {
             {rows.length === 0 ? (
                 <section className="card empty">
                     {db.recipes.length === 0
-                        ? <>No recipes yet. Create one, or load sample data from the <Link to="/">Dashboard</Link>.</>
+                        ? <>No recipes yet. Create one, start from the <Link to="/classics">classics library</Link>, or load sample data from the <Link to="/dashboard">Dashboard</Link>.</>
                         : "No recipes match that search."}
                 </section>
             ) : (

@@ -53,7 +53,7 @@ export default function CountsList() {
             <section className="card table-card">
                 <h2>Counts</h2>
                 {counts.length === 0 ? (
-                    <p className="card-pad muted">No counts yet. Start one, or load sample data from the <Link to="/">Dashboard</Link>.</p>
+                    <p className="card-pad muted">No counts yet. Start one, or load sample data from the <Link to="/dashboard">Dashboard</Link>.</p>
                 ) : (
                     <table className="table">
                         <thead><tr><th>Count</th><th>Date</th><th>Status</th><th className="num">Items</th><th className="num">Value</th></tr></thead>

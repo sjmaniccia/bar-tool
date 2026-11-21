@@ -22,7 +22,7 @@ export default function VendorsList() {
 
             {vendors.length === 0 ? (
                 <section className="card empty">
-                    No vendors yet. Add one, or load sample data from the <Link to="/">Dashboard</Link>.
+                    No vendors yet. Add one, or load sample data from the <Link to="/dashboard">Dashboard</Link>.
                 </section>
             ) : (
                 <div className="card table-card">

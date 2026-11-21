@@ -93,18 +93,37 @@ export default function RecipeDetail() {
 
             {editing && <EditDetails recipe={recipe} onDone={() => setEditing(false)} />}
 
-            {summary === null ? (
+            {/* Warnings first, so nothing below is misread */}
+            {summary === null && (
                 <section className="card warn-box">This recipe uses itself somewhere, so it can't be costed. Check its sub-recipes.</section>
-            ) : (
+            )}
+            {summary !== null && summary.missing.length > 0 && (
+                <section className="card warn-box">
+                    No price yet for <strong>{summary.missing.join(", ")}</strong>. Costs below leave {summary.missing.length === 1 ? "it" : "them"} out
+                    until a product is added on <Link to="/products">Products</Link>.
+                </section>
+            )}
+
+            {/* The build comes first: it's what people open a recipe to see */}
+            <IngredientsTable recipe={recipe} lines={lines} />
+
+            {summary !== null && (
                 <>
-                    {summary.missing.length > 0 && (
-                        <section className="card warn-box">
-                            No price yet for <strong>{summary.missing.join(", ")}</strong>. Costs below leave {summary.missing.length === 1 ? "it" : "them"} out
-                            until a product is added on <Link to="/products">Products</Link>.
-                        </section>
-                    )}
+                    <CostingSummary recipe={recipe} summary={summary} />
 
                     <div className="card-grid">
+                        {/* Training details for staff */}
+                        <section className="card">
+                            <h2>Training</h2>
+                            <div className="field"><span className="field-label">Glass</span><span className="field-value">{recipe.glass || "—"}</span></div>
+                            <div className="field"><span className="field-label">Garnish</span><span className="field-value">{recipe.garnish || "—"}</span></div>
+                            {recipe.description && <p>{recipe.description}</p>}
+                            {recipe.directions ? <p className="directions">{recipe.directions}</p>
+                                : <p className="muted small">No directions yet. Add them with Edit details.</p>}
+                        </section>
+
+                        <CostBreakdown lines={lines} />
+
                         {/* Yield and labor: labor = wage × minutes, per batch */}
                         <section className="card">
                             <h2>Yield &amp; labor</h2>
@@ -126,25 +145,9 @@ export default function RecipeDetail() {
                                 Labor per batch {formatMoney(summary.batchLaborCost)}, including in-house preps.
                             </p>
                         </section>
-
-                        {/* Training details for staff */}
-                        <section className="card">
-                            <h2>Training</h2>
-                            <div className="field"><span className="field-label">Glass</span><span className="field-value">{recipe.glass || "—"}</span></div>
-                            <div className="field"><span className="field-label">Garnish</span><span className="field-value">{recipe.garnish || "—"}</span></div>
-                            {recipe.description && <p>{recipe.description}</p>}
-                            {recipe.directions ? <p className="directions">{recipe.directions}</p>
-                                : <p className="muted small">No directions yet. Add them with Edit details.</p>}
-                        </section>
-
-                        <CostBreakdown lines={lines} />
                     </div>
-
-                    <CostingSummary recipe={recipe} summary={summary} />
                 </>
             )}
-
-            <IngredientsTable recipe={recipe} lines={lines} />
         </div>
     );
 }
