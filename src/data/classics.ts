@@ -78,7 +78,7 @@ export const CLASSICS: Classic[] = [
     },
     {
         name: "Margarita", style: "Sour", glass: "Rocks", garnish: "Salt rim, lime wheel",
-        build: [[2, "fl oz", "Blanco tequila"], [1, "fl oz", "Lime juice"], [0.75, "fl oz", "Orange liqueur"]],
+        build: [[2, "fl oz", "Blanco tequila"], [1, "fl oz", "Lime juice"], [1, "fl oz", "Orange liqueur"]],
         directions: "Shake with ice. Strain over fresh ice into a half salt-rimmed rocks glass.",
         description: "Tequila, lime and orange liqueur. Ask salt or no salt."
     },
