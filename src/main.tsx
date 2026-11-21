@@ -33,6 +33,7 @@ import CountsList from "./pages/CountsList";
 import CountDetail from "./pages/CountDetail";
 import OrdersList from "./pages/OrdersList";
 import OrderDetail from "./pages/OrderDetail";
+import ScanInvoice from "./pages/ScanInvoice";
 import InvoicesList from "./pages/InvoicesList";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import MenusList from "./pages/MenusList";
@@ -91,6 +92,7 @@ const router = createHashRouter([
             { path: "orders", element: <OrdersList /> },
             { path: "orders/:orderId", element: <OrderDetail /> },
             { path: "invoices", element: <InvoicesList /> },
+            { path: "invoices/scan", element: <ScanInvoice /> },
             { path: "invoices/:invoiceId", element: <InvoiceDetail /> },
             { path: "menus", element: <MenusList /> },
             { path: "menus/:menuId", element: <MenuDetail /> },

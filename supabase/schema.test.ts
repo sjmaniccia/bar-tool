@@ -14,6 +14,7 @@ import { PGlite } from "@electric-sql/pglite";
 const SUPABASE_STAND_IN = `
     create role anon;
     create role authenticated;
+    create role service_role;
     create schema auth;
     create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz);
     create function auth.uid() returns uuid language sql stable as
@@ -49,6 +50,7 @@ beforeAll(async () => {
     await db.exec(SUPABASE_STAND_IN);
     await db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./pos.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("./scanning.sql", import.meta.url), "utf8"));
     await db.exec(`
         insert into auth.users values
             ('${OWNER}', 'owner@bar.com', now()),
@@ -136,6 +138,56 @@ describe("POS connections", () => {
         expect(mine.rows[0]).toMatchObject({ provider: "square", merchant_name: "Shady's Square" });
         expect(Object.keys(mine.rows[0])).not.toContain("access_token");
         const theirs = await as(STRANGER, "select * from public.pos_status($1)", [barId]);
+        expect(theirs.rows).toEqual([]);
+    });
+});
+
+describe("invoice scan limits", () => {
+    // The server function claims a scan as service_role, using the secret key
+    async function claim(pages = 1) {
+        await db.exec("set role service_role;");
+        try {
+            const r = await db.query<Record<string, unknown>>("select * from public.claim_scan($1, $2, $3)", [barId, OWNER, pages]);
+            return r.rows[0];
+        } finally {
+            await db.exec("reset role;");
+        }
+    }
+
+    test("nobody in the app can claim scans, delete them or change limits", async () => {
+        await expect(as(OWNER, "select * from public.claim_scan($1, $2, 1)", [barId, OWNER])).rejects.toThrow();
+        await expect(as(OWNER, "select public.release_scan(1)")).rejects.toThrow();
+        await expect(as(OWNER, "delete from public.invoice_scans")).rejects.toThrow();
+        await expect(as(OWNER, "insert into public.scan_limits values ($1, 9999, 9999)", [barId])).rejects.toThrow();
+    });
+
+    test("stops at the daily limit, and a released scan is given back", async () => {
+        await db.exec(`insert into public.scan_limits values ('${barId}', 3, 300)`);
+        expect(await claim()).toMatchObject({ today_count: 1, month_count: 1, daily_limit: 3 });
+        await claim(2);
+        const third = await claim();
+        expect(third.scan_id).not.toBeNull();
+        const fourth = await claim();
+        expect(fourth).toMatchObject({ scan_id: null, today_count: 3 });
+
+        await db.exec("set role service_role;");
+        await db.query("select public.release_scan($1)", [third.scan_id]);
+        await db.exec("reset role;");
+        expect((await claim()).scan_id).not.toBeNull();
+    });
+
+    test("yesterday's scans don't count toward today's limit", async () => {
+        await db.exec(`update public.invoice_scans set scanned_at = now() - interval '25 hours'`);
+        const next = await claim();
+        // (Whether yesterday is still this month depends on today's date, so only the day is exact)
+        expect(next.today_count).toBe(1);
+        expect(next.month_count as number).toBeGreaterThanOrEqual(1);
+    });
+
+    test("members see usage; others see nothing", async () => {
+        const mine = await as(STAFF, "select * from public.scan_usage($1)", [barId]);
+        expect(mine.rows[0]).toMatchObject({ daily_limit: 3, monthly_limit: 300 });
+        const theirs = await as(STRANGER, "select * from public.scan_usage($1)", [barId]);
         expect(theirs.rows).toEqual([]);
     });
 });

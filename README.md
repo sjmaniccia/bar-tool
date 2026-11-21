@@ -19,12 +19,13 @@ Recipe costing and inventory for bars, kitchens and breweries, built by a former
 - Accounts and teams (Supabase): owner, manager and staff roles enforced by the database,
   syncing between devices with offline changes sent when the connection is back
 - Square connection: daily sales come in by themselves (a Supabase Edge Function holds the keys)
+- Invoice scanning: photograph an invoice, Claude reads it, lines match to your products and the matches are remembered per vendor
 
 ## Built with
 React 19, TypeScript 7, Vite 8, React Router 8, Vitest. Supabase (Postgres, Auth, Realtime)
 with Row Level Security. Deployed to GitHub Pages with GitHub Actions.
 
-Accounts are optional: see [SETUP-SUPABASE.md](SETUP-SUPABASE.md). Square: [SETUP-SQUARE.md](SETUP-SQUARE.md). Without them, Agave runs
+Accounts are optional: see [SETUP-SUPABASE.md](SETUP-SUPABASE.md). Square: [SETUP-SQUARE.md](SETUP-SQUARE.md). Invoice scanning: [SETUP-SCANNING.md](SETUP-SCANNING.md). Without them, Agave runs
 entirely in the browser.
 
 ## Running it locally
@@ -65,6 +66,7 @@ src/
     records.ts     the diff/merge math (tested without a network)
     access.ts      which pages each role can open
     pos.ts         Square connect / sync from the app's side
+    scan.ts        shrinks invoice photos and sends them to the scanner
     team.ts        members and invites
   components/    pieces of screens (layout, inputs, status badges, recipe sections)
   pages/         one file per screen
@@ -73,6 +75,8 @@ supabase/
   schema.test.ts   checks the security rules in a real Postgres (PGlite)
   pos.sql          POS connection tables (keys readable only by the server)
   functions/square the Square server function (connect, sync, disconnect)
+  functions/scan-invoice  reads invoice photos with Claude (holds the Anthropic key)
+  scanning.sql     scan limits per bar (20 a day, 300 a month by default)
   square-test-sales.mjs  rings up fake sales in Square's sandbox
 ```
 
@@ -88,5 +92,6 @@ supabase/
 - ✅ Open-bottle picker, barcode scanning, backup/export/import, installable offline app
 - ✅ Accounts, teams with owner/manager/staff roles, multi-device sync, offline changes
 - ✅ Square connection with daily sales sync
+- ✅ Invoice photo scanning with remembered matches
 - 🔜 Toast connection, invite emails, hiding costs from staff screens
 - 🔜 Invoice photo scanning

@@ -46,7 +46,7 @@ npx supabase login
 (A browser opens; approve it.) Then:
 
 ```
-npx supabase functions deploy square --project-ref YOUR-REF --use-api --no-verify-jwt
+npx supabase functions deploy square --remote=YOUR-REF --use-api --no-verify-jwt
 ```
 
 It should end with "Deployed Functions on project YOUR-REF: square".

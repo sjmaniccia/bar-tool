@@ -23,11 +23,12 @@ export default function InvoicesList() {
                     <p className="muted">Check deliveries against the invoice, then approve to update your prices.</p>
                 </div>
                 <div className="add-line">
+                    <Link className="button" to="/invoices/scan">📷 Scan invoice</Link>
                     <select value={vendorId} aria-label="Vendor for new invoice" onChange={(e) => setVendorId(e.target.value)}>
                         <option value="">Choose a vendor…</option>
                         {db.vendors.map((v) => <option key={v.id} value={v.id}>{v.companyName}</option>)}
                     </select>
-                    <button disabled={vendorId === ""} onClick={() => navigate("/invoices/" + createInvoice(vendorId))}>+ New invoice</button>
+                    <button className="secondary" disabled={vendorId === ""} onClick={() => navigate("/invoices/" + createInvoice(vendorId))}>+ Type one in</button>
                 </div>
             </div>
 

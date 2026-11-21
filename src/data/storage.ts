@@ -32,6 +32,7 @@ export function emptyData(): Database {
         salesImports: [],
         salesLines: [],
         posLinks: [],
+        invoiceItemLinks: [],
         wasteEntries: []
     };
 }

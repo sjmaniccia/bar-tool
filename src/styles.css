@@ -830,3 +830,39 @@ td.warn, .num.warn { color: var(--danger); font-weight: 600; }
     .spec { break-inside: avoid; page-break-inside: avoid; border-bottom: 1px solid #ccc !important; }
     .status, .tag { border: 1px solid #999; background: none; color: #000; }
 }
+
+/* ===== Invoice scanning ===== */
+.card-pad-all { padding: 18px 22px; }
+.scan-card { padding: 22px; display: grid; gap: 16px; }
+.scan-drop {
+    display: grid; justify-items: center; gap: 4px; padding: 36px 16px; cursor: pointer;
+    border: 2px dashed var(--input-border); border-radius: 12px; text-align: center;
+    background: var(--accent-soft);
+}
+.scan-drop:hover { border-color: var(--accent); }
+.scan-drop-icon { font-size: 2rem; }
+.scan-thumbs { display: flex; gap: 12px; flex-wrap: wrap; }
+.scan-thumb { margin: 0; width: 120px; }
+.scan-thumb img { width: 120px; height: 160px; object-fit: cover; border-radius: 8px; border: 1px solid var(--border); display: block; }
+.scan-thumb figcaption { display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 4px; }
+.scan-head { padding: 18px 22px; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
+.scan-head label { display: grid; gap: 4px; align-content: start; }
+.scan-warnings { margin: 8px 0 0; padding-left: 20px; }
+.scan-table td { vertical-align: top; }
+.scan-table select { max-width: 340px; }
+.scan-pick { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.scan-skipped td:not(:last-child) { opacity: 0.5; }
+@media (max-width: 720px) {
+    .scan-head { grid-template-columns: 1fr 1fr; }
+    .scan-head label:first-child { grid-column: 1 / -1; }
+    /* Each line becomes a small card: name, then qty / price / total, then the product */
+    .scan-table thead { display: none; }
+    .scan-table, .scan-table tbody { display: block; }
+    .scan-table tr { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px 10px; padding: 14px 16px; border-bottom: 1px solid var(--border); }
+    .scan-table td { display: block; padding: 0; border: none; text-align: left; }
+    .scan-table td:first-child, .scan-table td:last-child { grid-column: 1 / -1; }
+    .scan-table td.num { align-self: center; }
+    .scan-table .qty-input { width: 100%; }
+    .scan-table select { max-width: none; width: 100%; }
+    .scan-table .scan-pick { flex-wrap: nowrap; }
+}

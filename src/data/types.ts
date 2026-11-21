@@ -210,6 +210,16 @@ export interface PosLink {
 }
 
 
+// Remembers which product a supplier's invoice line is, so the next scan matches itself
+//     key = "sku:10432" when the invoice prints an item code, else "desc:island white rum 12 1l"
+export interface InvoiceItemLink {
+    id: string;
+    vendorId: string;
+    key: string;
+    purchaseUnitId: string;
+}
+
+
 // ===== Waste =====
 
 export type WasteReason = "spill" | "comp" | "breakage" | "expired" | "returned" | "other";
@@ -268,5 +278,6 @@ export interface Database {
     salesImports: SalesImport[];
     salesLines: SalesLine[];
     posLinks: PosLink[];
+    invoiceItemLinks: InvoiceItemLink[];
     wasteEntries: WasteEntry[];
 }
