@@ -78,7 +78,7 @@ export const CLASSICS: Classic[] = [
     },
     {
         name: "Margarita", style: "Sour", glass: "Rocks", garnish: "Salt rim, lime wheel",
-        build: [[2, "fl oz", "Blanco tequila"], [1, "fl oz", "Lime juice"], [1, "fl oz", "Orange liqueur"]],
+        build: [[2, "fl oz", "Blanco tequila"], [1, "fl oz", "Lime juice"], [0.75, "fl oz", "Orange liqueur"]],
         directions: "Shake with ice. Strain over fresh ice into a half salt-rimmed rocks glass.",
         description: "Tequila, lime and orange liqueur. Ask salt or no salt."
     },
@@ -178,7 +178,7 @@ export const CLASSICS: Classic[] = [
         name: "Tom Collins", style: "Highball", glass: "Collins", garnish: "Lemon wheel, cherry",
         build: [[2, "fl oz", "London dry gin"], [1, "fl oz", "Lemon juice"], [0.5, "fl oz", "Simple syrup"], [2, "fl oz", "Club soda"]],
         directions: "Shake gin, lemon and syrup with ice. Strain over fresh ice and top with soda.",
-        description: "Sparkling gin lemonade vibes."
+        description: "Sparkling gin lemonade, basically."
     },
     {
         name: "Long Island Iced Tea", style: "Highball", glass: "Collins", garnish: "Lemon wedge",
@@ -228,7 +228,7 @@ export const CLASSICS: Classic[] = [
     // ===== Brunch & after dinner =====
     {
         name: "Espresso Martini", style: "Brunch & after dinner", glass: "Coupe", garnish: "3 coffee beans",
-        build: [[1.50, "fl oz", "Vodka"], [0.75, "fl oz", "Coffee liqueur"], [1, "fl oz", "Espresso"], [0.25, "fl oz", "Simple syrup"]],
+        build: [[1.75, "fl oz", "Vodka"], [0.5, "fl oz", "Coffee liqueur"], [1, "fl oz", "Espresso"], [0.25, "fl oz", "Simple syrup"]],
         directions: "Shake very hard with ice for a thick foam. Double strain into a chilled coupe.",
         description: "Fresh espresso and a hard shake make the foam."
     },
