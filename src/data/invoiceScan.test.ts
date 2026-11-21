@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { db } from "./storage";
 import { sampleData } from "./sampleData";
 import {
-    buildDraft, createInvoiceFromDraft, createProductFromLine, guessFamily, matchLine,
-    matchVendor, packFromText, productName, words, type ScannedInvoice, type ScannedLine
+    addUnmatchedAsProducts, buildDraft, createInvoiceFromDraft, createProductFromLine, guessFamily, matchLine,
+    matchVendor, packFromText, productName, vendorDisplayName, words, type ScannedInvoice, type ScannedLine
 } from "./invoiceScan";
 
 beforeEach(() => {
@@ -122,6 +122,8 @@ describe("new products from lines", () => {
         expect(guessFamily("HAZY IPA 1/2BBL")).toBe("Beer");
         expect(guessFamily("NAPKINS")).toBe("Other");
         expect(productName(line("BLUE CURACAO LIQUEUR 12/1L"))).toBe("Blue Curacao Liqueur");
+        expect(productName(line("TITO'S HANDMADE VODKA 12/1L"))).toBe("Tito's Handmade Vodka");
+        expect(guessFamily("CASAMIGOS BLANCO 6/750ML")).toBe("Spirits");
     });
 
     test("creates the product, bottle and case, with the price and item code", () => {
@@ -131,5 +133,37 @@ describe("new products from lines", () => {
         const format = db.formats.find((f) => f.id === unit.formatId)!;
         expect(format).toMatchObject({ unitSize: 1000, sizeUnit: "ml" });
         expect(db.products.find((p) => p.id === format.productId)?.name).toBe("Blue Curacao Liqueur");
+    });
+});
+
+describe("filling in a new bar from an invoice", () => {
+    test("tidies the printed vendor name", () => {
+        expect(vendorDisplayName("SOUTHERN GLAZER'S WINE & SPIRITS OF TN, LLC")).toBe("Southern Glazer's Wine & Spirits of TN");
+        expect(vendorDisplayName("Breakthru Beverage Inc.")).toBe("Breakthru Beverage");
+        expect(vendorDisplayName("RNDC")).toBe("RNDC");
+    });
+
+    test("adds the vendor and every unmatched item in one go, then remembers them", () => {
+        const scan: ScannedInvoice = {
+            vendorName: "BREAKTHRU BEVERAGE TENNESSEE, LLC", invoiceNumber: "B-1", invoiceDate: "2026-11-20",
+            lines: [
+                line("BLUE CURACAO LIQUEUR 12/1L", { unitPrice: 96 }),
+                line("HAZY IPA 1/2BBL", { unit: "EA", unitPrice: 185 }),
+                line("DELIVERY FEE", { kind: "fee", unitPrice: 10 })
+            ],
+            subtotal: 291, tax: 0, total: 291
+        };
+        const before = db.products.length;
+        const { draft, added } = addUnmatchedAsProducts(buildDraft(scan));
+        expect(added).toBe(2);
+        expect(db.products.length).toBe(before + 2);
+        expect(db.vendors.find((v) => v.id === draft.vendorId)?.companyName).toBe("Breakthru Beverage Tennessee");
+        expect(draft.lines[2].purchaseUnitId).toBeNull();
+
+        createInvoiceFromDraft(draft);
+        const again = buildDraft({ ...scan, invoiceNumber: "B-2" });
+        expect(again.vendorId).toBe(draft.vendorId);
+        expect(again.lines.slice(0, 2).map((l) => l.how)).toEqual(["remembered", "remembered"]);
+        expect(db.vendors.filter((v) => v.companyName.startsWith("Breakthru"))).toHaveLength(1);
     });
 });

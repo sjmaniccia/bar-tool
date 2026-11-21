@@ -202,7 +202,7 @@ export function packFromText(text: string): { unitsPer: number; size: number; un
 const FAMILY_WORDS: [string, RegExp][] = [
     ["Beer", /\b(beer|lager|ale|ipa|stout|pilsner|porter|seltzer|cider|keg|bbl)\b/i],
     ["Wine", /\b(wine|cabernet|cab|merlot|pinot|chardonnay|chard|sauvignon|riesling|rose|prosecco|champagne|cava|malbec|zinfandel|blend)\b/i],
-    ["Spirits", /\b(rum|vodka|gin|tequila|mezcal|whiskey|whisky|bourbon|rye|scotch|brandy|cognac|liqueur|vermouth|amaro|aperol|campari|bitters|schnapps|triple sec)\b/i],
+    ["Spirits", /\b(rum|vodka|gin|tequila|mezcal|whiskey|whisky|bourbon|rye|scotch|brandy|cognac|liqueur|vermouth|amaro|aperol|campari|bitters|schnapps|triple sec|blanco|reposado|anejo|añejo|aperitivo|aperitif|absinthe|pisco|cachaca|sake|soju|cognac|armagnac)\b/i],
     ["Produce", /\b(lime|limes|lemon|lemons|orange|oranges|mint|grapefruit|berries|cucumber|jalapeno)\b/i],
     ["Non-alcoholic", /\b(soda|tonic|juice|syrup|ginger beer|cola|water|puree|mixer)\b/i]
 ];
@@ -220,7 +220,8 @@ export function productName(line: ScannedLine): string {
         .replace(/\b1\/[246]\s*BBL\b/gi, "")
         .replace(/\s+/g, " ")
         .trim();
-    return name.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase()) || line.description;
+    // Capitalize each word (not letters after an apostrophe: "Tito's", not "Tito'S")
+    return name.toLowerCase().split(" ").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || line.description;
 }
 
 // Make a product, size and way-to-buy from a line, through the same code as the
@@ -247,6 +248,53 @@ export function createProductFromLine(line: ScannedLine, vendorId: string): stri
 }
 
 
+// ===== Filling in a new bar from its invoices =====
+
+// "SOUTHERN GLAZER'S WINE & SPIRITS OF TN, LLC" -> "Southern Glazer's Wine & Spirits of TN"
+//     drop the legal ending (LLC, Inc), title-case words, keep codes (TN, RNDC) as printed
+export function vendorDisplayName(printed: string): string {
+    const trimmed = printed.replace(/[,.\s]+(llc|inc|incorporated|co|corp|corporation|ltd)\.?\s*$/i, "").trim();
+    return trimmed.split(/\s+/).map((word) => {
+        if (/^(of|and|the)$/i.test(word)) return word.toLowerCase();
+        // Codes stay as printed: two letters (TN) or no vowels (RNDC); real words don't
+        if (/^[A-Z&]+$/.test(word) && (word.length <= 2 || !/[AEIOUY]/.test(word))) return word;
+        return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    }).join(" ") || "New vendor";
+}
+
+// The vendor for this draft, adding it if it's new
+export function ensureVendor(draft: Draft): string {
+    return draft.vendorId ?? createVendor(vendorDisplayName(draft.vendorName));
+}
+
+// The lines nothing matched (items only: fees and credits stay skipped)
+export function unmatchedLines(draft: Draft): number[] {
+    const out: number[] = [];
+    for (let i = 0; i < draft.lines.length; i++) {
+        const line = draft.lines[i];
+        if (line.scanned.kind === "item" && !line.skip && !line.purchaseUnitId) out.push(i);
+    }
+    return out;
+}
+
+// One click for a bar's first invoices: every unmatched line becomes a product
+//     add the vendor IF it's new
+//     FOR each unmatched line -> product, bottle size and way to buy it, at this price
+//     the new products are matched, so they're remembered when the invoice is created
+export function addUnmatchedAsProducts(draft: Draft): { draft: Draft; added: number } {
+    const vendorId = ensureVendor(draft);
+    let added = 0;
+    const lines = draft.lines.map((line, i) => {
+        if (!unmatchedLines(draft).includes(i)) return line;
+        const unitId = createProductFromLine({ ...line.scanned, unitPrice: line.unitPrice }, vendorId);
+        if (!unitId) return line;
+        added++;
+        return { ...line, purchaseUnitId: unitId, how: "picked" as MatchHow };
+    });
+    return { draft: { ...draft, vendorId, lines }, added };
+}
+
+
 // ===== Create the invoice =====
 
 // Make the draft invoice and remember every match for next time. Returns the invoice id.
@@ -254,7 +302,7 @@ export function createProductFromLine(line: ScannedLine, vendorId: string): stri
 //     FOR each line that isn't skipped and has a product -> an invoice line
 //     Skipped lines are listed in the invoice's note, so nothing silently disappears
 export function createInvoiceFromDraft(draft: Draft): string {
-    const vendorId = draft.vendorId ?? createVendor(draft.vendorName || "New vendor");
+    const vendorId = ensureVendor(draft);
     const invoiceId = makeId();
     const used = draft.lines.filter((l) => !l.skip && l.purchaseUnitId);
     const skipped = draft.lines.filter((l) => !used.includes(l));

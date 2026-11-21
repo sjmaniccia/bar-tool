@@ -73,6 +73,10 @@ git push
 
 When GitHub Actions finishes: **Invoices** > **📷 Scan invoice** > take a photo > **Read invoice**.
 
+Starting a bar from scratch? On the check screen, **+ Add N as new products** turns every
+unmatched line into a product (name, bottle size, case size, price) and adds the vendor
+if it's new. A few invoices fill in most of a bar's product list.
+
 The first invoice from a vendor needs the most checking. Every match you make is
 remembered for that vendor (by item code, or by the line's words), so the next invoice
 from them is mostly matched already.

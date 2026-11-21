@@ -18,10 +18,9 @@ import { useDb } from "../data/storage";
 import { useSession } from "../cloud/session";
 import { limitReached, MAX_PAGES, scanInvoice, scanUsage, shrinkPhoto, type ScanUsage } from "../cloud/scan";
 import {
-    buildDraft, createInvoiceFromDraft, createProductFromLine, rematch, unitLabel,
+    addUnmatchedAsProducts, buildDraft, createInvoiceFromDraft, createProductFromLine, ensureVendor, rematch, unitLabel, unmatchedLines, vendorDisplayName,
     type Draft, type DraftLine, type MatchHow
 } from "../data/invoiceScan";
-import { createVendor } from "../data/library";
 import { formatMoney, parseAmount } from "../data/utils";
 
 const NEW_PRODUCT = "__new";
@@ -180,7 +179,7 @@ export default function ScanInvoice() {
         if (value === SKIP) return setLine(index, { skip: true, purchaseUnitId: null });
         if (value === NEW_PRODUCT) {
             // A new product needs a vendor to buy it from: add the vendor now if it's new
-            const vendorId = d.vendorId ?? createVendor(d.vendorName || "New vendor");
+            const vendorId = ensureVendor(d);
             const unitId = createProductFromLine({ ...d.lines[index].scanned, unitPrice: d.lines[index].unitPrice }, vendorId);
             setDraft({
                 ...d, vendorId,
@@ -190,6 +189,14 @@ export default function ScanInvoice() {
             return;
         }
         setLine(index, { skip: false, purchaseUnitId: value || null, how: value ? "picked" : "none" });
+    }
+
+    const unmatched = unmatchedLines(d);
+
+    function addAll() {
+        const { draft: next, added } = addUnmatchedAsProducts(d);
+        setDraft(next);
+        if (added < unmatched.length) setError("Some lines couldn't be added. Pick a product for them, or skip them.");
     }
 
     function create() {
@@ -220,7 +227,7 @@ export default function ScanInvoice() {
                         value={d.vendorId ?? ""}
                         onChange={(e) => setDraft(rematch(d, e.target.value || null))}
                     >
-                        <option value="">{"New vendor: " + (d.vendorName || "unnamed")}</option>
+                        <option value="">{"New vendor: " + vendorDisplayName(d.vendorName)}</option>
                         {db.vendors.map((v) => <option key={v.id} value={v.id}>{v.companyName}</option>)}
                     </select>
                     {d.vendorName && <span className="muted small">Printed: {d.vendorName}</span>}
@@ -242,6 +249,20 @@ export default function ScanInvoice() {
                         {warnings.map((w) => <li key={w}>{w}</li>)}
                         {error && <li>{error}</li>}
                     </ul>
+                </section>
+            )}
+
+            {unmatched.length > 0 && (
+                <section className="card scan-fill">
+                    <div>
+                        <strong>{unmatched.length} {unmatched.length === 1 ? "item isn't" : "items aren't"} in Agave yet.</strong>
+                        <span className="muted small">
+                            {" "}Add {unmatched.length === 1 ? "it" : "them"} as new products: name, bottle size, case size and this price
+                            {d.vendorId ? "" : ", plus " + vendorDisplayName(d.vendorName) + " as a vendor"}.
+                            Check a few on the Products page afterward.
+                        </span>
+                    </div>
+                    <button onClick={addAll}>+ Add {unmatched.length} as new products</button>
                 </section>
             )}
 
