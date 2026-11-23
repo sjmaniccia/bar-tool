@@ -12,6 +12,7 @@
 // Phones only allow sound after a tap, so the first tap anywhere "unlocks" it (Layout calls unlockSound).
 // Buzz (vibrate) works on Android; iPhones don't let websites vibrate.
 
+import { isNative, tap } from "./native";
 import { useSyncExternalStore } from "react";
 
 export type Sound = "none" | "tick" | "success" | "big" | "up" | "whoosh";
@@ -116,6 +117,8 @@ export function playSound(sound: Sound) {
 
 export function buzz(pattern: number | number[]) {
     if (!feedbackSettings().haptics || feedbackSettings().celebrations === "off") return;
+    // In the iPhone app: a real haptic (iPhones ignore vibrate). In a browser: vibrate (Android)
+    if (isNative) return tap(Array.isArray(pattern) ? "success" : "light");
     try { navigator.vibrate?.(pattern); } catch { /* not supported */ }
 }
 

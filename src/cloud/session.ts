@@ -10,6 +10,7 @@
 //     no-bar         signed in but not in a bar yet: create one or wait for an invite
 //     ready          signed in with a bar open and syncing
 
+import { isNative, WEB_ADDRESS } from "../native";
 import { useSyncExternalStore } from "react";
 import type { User } from "@supabase/supabase-js";
 import { cloudEnabled, supabase, supabaseTransport } from "./client";
@@ -227,9 +228,11 @@ export function hasDeviceData(): boolean {
 
 // Where email links send people back to (this page, without any #/page)
 //     carrying an invite link's code, in case the email opens in another browser
+//     In the iPhone app the links open the website (an email can't open the app yet)
 function returnAddress(): string {
     const join = read(JOIN_KEY);
-    return location.origin + location.pathname + (join ? "?join=" + join : "");
+    const here = isNative ? WEB_ADDRESS : location.origin + location.pathname;
+    return here + (join ? "?join=" + join : "");
 }
 
 export async function signIn(email: string, password: string): Promise<string | null> {
@@ -261,6 +264,12 @@ export async function setNewPassword(password: string): Promise<string | null> {
 // Sign out and wipe this bar's copy from the device (bar tablets are shared)
 export async function signOut() {
     await supabase!.auth.signOut();
+    signedOutLocally();
+}
+
+// The account is gone on the server: forget the sign-in here without asking the server
+export async function signedOutAfterDeletion() {
+    await supabase!.auth.signOut({ scope: "local" });
     signedOutLocally();
 }
 

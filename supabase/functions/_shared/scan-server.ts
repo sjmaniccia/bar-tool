@@ -29,7 +29,7 @@ export function json(body: unknown, status = 200): Response {
     return new Response(JSON.stringify(body), { status, headers: { ...CORS, "Content-Type": "application/json" } });
 }
 
-function admin(): SupabaseClient {
+export function admin(): SupabaseClient {
     let key = env("SUPABASE_SERVICE_ROLE_KEY");
     try {
         key = JSON.parse(env("SUPABASE_SECRET_KEYS")).default ?? key;

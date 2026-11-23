@@ -3,6 +3,8 @@
 //     IF the person picked one with the switch -> use it (saved in this browser)
 //     ELSE follow the phone or computer setting
 
+import { syncStatusBar } from "./native";
+
 export type Theme = "light" | "dark";
 
 const KEY = "agave.theme";
@@ -31,6 +33,7 @@ export function currentTheme(): Theme {
 function apply(theme: Theme | null) {
     if (theme) document.documentElement.dataset.theme = theme;
     else delete document.documentElement.dataset.theme;
+    syncStatusBar((theme ?? deviceTheme()) === "dark");
 }
 
 // Run once at startup so a saved choice shows before the first draw

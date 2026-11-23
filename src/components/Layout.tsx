@@ -364,6 +364,7 @@ function ProfileMenu({ session }: { session: Session }) {
                         {theme === "dark" ? "Light mode" : "Dark mode"}
                     </button>
                     <div className="menu-rule" />
+                    {ready && <Link to="/account" role="menuitem">Account</Link>}
                     {ready && <button className="link-button" role="menuitem" onClick={() => void out()}>Sign out</button>}
                     {session.demo && cloudEnabled && <button className="link-button" role="menuitem" onClick={leaveDemo}>Sign in</button>}
                 </div>

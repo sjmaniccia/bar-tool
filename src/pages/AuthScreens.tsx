@@ -2,6 +2,7 @@
 // The screens before the app: sign in, create an account, reset a password,
 // and set up a bar. They share one centered card with the Agave seal.
 
+import { PRIVACY_URL } from "../native";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
     createBar, hasDeviceData, pendingJoinCode, sendPasswordReset, setNewPassword, signIn, signOut, signUp,
@@ -137,6 +138,7 @@ export function SignInScreen() {
                     <button className="secondary" onClick={startDemo}>Try it without an account</button>
                 </div>
             )}
+            <p className="muted small auth-legal"><a href={PRIVACY_URL} target="_blank" rel="noreferrer">Privacy policy</a></p>
         </AuthCard>
     );
 }

@@ -1100,3 +1100,21 @@ td.warn, .num.warn { color: var(--danger); font-weight: 600; }
     :root:not([data-theme="light"]) .supply-toggle.on, :root:not([data-theme="light"]) .tag.supply-tag { color: #f0c47a; background: #3a2d18; border-color: #5a4626; }
 }
 :root[data-theme="dark"] .supply-toggle.on, :root[data-theme="dark"] .tag.supply-tag { color: #f0c47a; background: #3a2d18; border-color: #5a4626; }
+
+/* Account page: deleting */
+.danger-card { border-color: var(--danger); }
+.danger-card h2 { color: var(--danger); }
+.delete-confirm { display: grid; gap: 10px; max-width: 360px; }
+.delete-confirm input { display: block; width: 100%; margin-top: 4px; }
+button.danger.solid { background: var(--danger); color: #fff; }
+button.danger.solid:disabled { opacity: 0.5; }
+.page-narrow { max-width: 720px; }
+
+/* The notch: with viewport-fit=cover the app draws under the status bar,
+   so the top bar grows by the safe area (0 in a normal browser tab) */
+.app { grid-template-rows: calc(60px + env(safe-area-inset-top)) 1fr; }
+.topbar { padding-top: env(safe-area-inset-top); }
+/* Inside the iPhone app: no rubber-band page bounce or long-press callouts on buttons */
+.native body { overscroll-behavior: none; }
+.native button, .native a { -webkit-touch-callout: none; }
+.auth-legal { text-align: center; margin: 14px 0 0; }

@@ -9,6 +9,7 @@
 //            A day imported while it was still going (today) isn't finished, so the
 //            next sync fetches it again and replaces it with the full day.
 
+import { isNative, WEB_ADDRESS } from "../native";
 import { supabase } from "./client";
 import { db } from "../data/storage";
 import { deleteSalesImport, importSales } from "../data/variance";
@@ -36,8 +37,11 @@ export async function squareStatus(barId: string): Promise<PosStatus | null> {
 }
 
 // Ask the server for the Square approval link, then go there
+//     In the iPhone app, Square opens in Safari and comes back to the website (it can't
+//     come back to the app yet); the connection is saved either way, so the app sees it
 export async function connectSquare(barId: string): Promise<string | null> {
-    const result = await callSquare({ action: "connect", barId, returnUrl: location.origin + location.pathname });
+    const returnUrl = isNative ? WEB_ADDRESS : location.origin + location.pathname;
+    const result = await callSquare({ action: "connect", barId, returnUrl });
     if (!result.ok) return result.error;
     location.href = (result.data as { url: string }).url;
     return null;

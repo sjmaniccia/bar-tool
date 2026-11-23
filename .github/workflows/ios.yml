@@ -1,0 +1,79 @@
+# Builds the iPhone app on a Mac in GitHub's cloud and sends it to TestFlight.
+# Run it by hand: GitHub > Actions > "iPhone app to TestFlight" > Run workflow.
+#
+#     BUILD   the web app (same as the website), copied into the iPhone project
+#     SIGN    automatically, with an App Store Connect API key (no certificates to manage)
+#     UPLOAD  straight to App Store Connect; it shows up in TestFlight in ~15 minutes
+#
+# One-time setup (SETUP-IOS.md): these repo secrets
+#     APPLE_TEAM_ID         10 characters, from developer.apple.com > Membership
+#     ASC_KEY_ID            the API key's id
+#     ASC_ISSUER_ID         the long id above the keys list
+#     ASC_KEY_P8            the whole .p8 file, opened in TextEdit and pasted in
+name: iPhone app to TestFlight
+
+on:
+    workflow_dispatch:
+
+jobs:
+    testflight:
+        runs-on: macos-15
+        timeout-minutes: 45
+        steps:
+            - uses: actions/checkout@v7
+            - uses: actions/setup-node@v7
+              with:
+                  node-version: 22
+                  cache: npm
+            - run: npm ci
+            - run: npm test
+            - run: npm run build
+              env:
+                  VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+                  VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+            - run: npx cap sync ios
+
+            # Apple only takes apps built with the newest Xcode
+            - uses: maxim-lobanov/setup-xcode@v1
+              with:
+                  xcode-version: latest-stable
+
+            # The API key lets Xcode sign and upload as you, without a password
+            - name: Put the API key where Xcode looks
+              env:
+                  ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+                  ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+              run: |
+                  mkdir -p "$RUNNER_TEMP/keys"
+                  printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
+
+            # Each run gets a new build number (Apple refuses repeats)
+            - name: Build and sign
+              run: |
+                  xcodebuild archive \
+                      -project ios/App/App.xcodeproj -scheme App -configuration Release \
+                      -destination generic/platform=iOS \
+                      -archivePath "$RUNNER_TEMP/App.xcarchive" \
+                      DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
+                      CODE_SIGN_STYLE=Automatic \
+                      CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+                      -allowProvisioningUpdates \
+                      -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8" \
+                      -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
+                      -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }}
+
+            - name: Upload to App Store Connect
+              run: |
+                  /usr/libexec/PlistBuddy -c "Add :teamID string ${{ secrets.APPLE_TEAM_ID }}" ios/ExportOptions.plist
+                  xcodebuild -exportArchive \
+                      -archivePath "$RUNNER_TEMP/App.xcarchive" \
+                      -exportOptionsPlist ios/ExportOptions.plist \
+                      -exportPath "$RUNNER_TEMP/export" \
+                      -allowProvisioningUpdates \
+                      -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8" \
+                      -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
+                      -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }}
+
+            - name: Remove the key
+              if: always()
+              run: rm -rf "$RUNNER_TEMP/keys"

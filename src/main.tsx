@@ -15,6 +15,7 @@
 //     #/team             Team members, roles and invites (signed in)
 // The # keeps everything on one real page, which GitHub Pages needs.
 
+import { isNative, startNative } from "./native";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { createHashRouter } from "react-router";
@@ -50,6 +51,7 @@ import Training from "./pages/Training";
 import Classics from "./pages/Classics";
 import SpecBooks from "./pages/SpecBooks";
 import Team from "./pages/Team";
+import Account from "./pages/Account";
 import { startSession } from "./cloud/session";
 import NotFound from "./pages/NotFound";
 // The font is bundled with the app (no outside requests): DM Sans for everything
@@ -58,17 +60,19 @@ import "@fontsource/dm-sans/500.css";
 import "@fontsource/dm-sans/600.css";
 import "@fontsource/dm-sans/700.css";
 import "./styles.css";
-import { applySavedTheme } from "./theme";
+import { applySavedTheme, currentTheme } from "./theme";
 
 // Show a saved light/dark choice before the first draw (no flash)
 applySavedTheme();
 
 // Check who's signed in (does nothing if no Supabase project is set up)
 startSession();
+startNative(currentTheme() === "dark");
 
 // Register the service worker so the app opens offline and can be installed
 //     Only in the built app: during `npm run dev` it would cache files you're still editing
-if (import.meta.env.PROD && "serviceWorker" in navigator) {
+//     Not in the iPhone app: its files are already on the phone
+if (import.meta.env.PROD && !isNative && "serviceWorker" in navigator) {
     window.addEventListener("load", () => {
         navigator.serviceWorker.register("./sw.js").catch((error) => console.log("Offline mode unavailable:", error));
     });
@@ -109,6 +113,7 @@ const router = createHashRouter([
             { path: "classics", element: <Classics /> },
             { path: "specs", element: <SpecBooks /> },
             { path: "team", element: <Team /> },
+            { path: "account", element: <Account /> },
             { path: "*", element: <NotFound /> }
         ]
     }

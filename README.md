@@ -28,7 +28,7 @@ Recipe costing and inventory for bars, kitchens and breweries, built by a former
 React 19, TypeScript 7, Vite 8, React Router 8, Vitest. Supabase (Postgres, Auth, Realtime)
 with Row Level Security. Deployed to GitHub Pages with GitHub Actions.
 
-Accounts are optional: see [SETUP-SUPABASE.md](SETUP-SUPABASE.md). Square: [SETUP-SQUARE.md](SETUP-SQUARE.md). Invoice scanning: [SETUP-SCANNING.md](SETUP-SCANNING.md). Without them, Agave runs
+Accounts are optional: see [SETUP-SUPABASE.md](SETUP-SUPABASE.md). Square: [SETUP-SQUARE.md](SETUP-SQUARE.md). Invoice scanning: [SETUP-SCANNING.md](SETUP-SCANNING.md). iPhone app: [SETUP-IOS.md](SETUP-IOS.md). Without them, Agave runs
 entirely in the browser.
 
 ## Running it locally
