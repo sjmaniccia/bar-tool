@@ -94,7 +94,13 @@ export function startSession() {
     supabase!.auth.onAuthStateChange((event, auth) => {
         // Supabase asks that no other Supabase calls run inside this callback, so wait a tick
         setTimeout(() => {
-            if (event === "PASSWORD_RECOVERY") set({ mode: "recovery" });
+            // A reset link sends PASSWORD_RECOVERY and a signed-in event together:
+            //     stay on "set a new password" until one is saved (setNewPassword opens the bar)
+            if (event === "PASSWORD_RECOVERY") {
+                recovering = true;
+                set({ mode: "recovery" });
+            }
+            else if (auth?.user && recovering) return;
             else if (auth?.user && (auth.user.id !== session.userId || session.mode === "loading" || session.mode === "signed-out")) void signedIn(auth.user);
             else if (!auth?.user && session.mode !== "local") signedOutLocally();
         }, 0);
@@ -105,11 +111,18 @@ export function startSession() {
     }
 }
 
+// TRUE while a reset link is open and no new password is saved yet:
+//     nothing may open the bar over the "set a new password" screen
+let recovering = false;
+
 // Someone signed in: join any bars that invited them, then open a bar
 //     IF they came from an invite link -> join that bar and open it
+//     IF a reset link arrives meanwhile -> stop (checked after each wait)
 async function signedIn(user: User) {
+    if (recovering) return;
     set({ mode: "loading", email: user.email ?? "", userId: user.id });
     await supabase!.rpc("accept_invites");
+    if (recovering) return;
     const joinCode = read(JOIN_KEY);
     let joinedBar: string | null = null;
     if (joinCode) {
@@ -119,6 +132,7 @@ async function signedIn(user: User) {
         else joinedBar = data as string;
     }
     const bars = await loadBars();
+    if (recovering) return;
     if (joinedBar) {
         write(BAR_KEY, joinedBar);
         const bar = bars.find((b) => b.id === joinedBar);
@@ -257,6 +271,7 @@ export async function sendPasswordReset(email: string): Promise<string | null> {
 export async function setNewPassword(password: string): Promise<string | null> {
     const { data, error } = await supabase!.auth.updateUser({ password });
     if (error) return friendly(error.message);
+    recovering = false;
     if (data.user) await signedIn(data.user);
     return null;
 }
@@ -274,6 +289,7 @@ export async function signedOutAfterDeletion() {
 }
 
 function signedOutLocally() {
+    recovering = false;
     engine?.stop();
     engine = null;
     setSaveHook(null);
