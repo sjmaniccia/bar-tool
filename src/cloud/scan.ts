@@ -14,6 +14,10 @@
 
 import { supabase } from "./client";
 import type { ScannedInvoice } from "../data/invoiceScan";
+import type { ScannedRecipe } from "../data/recipeScan";
+
+export type ScanKind = "invoice" | "recipe";
+export const MAX_RECIPE_PAGES = 30;     // photos chosen at once (each is read on its own)
 
 export const MAX_PAGES = 4;
 const MAX_SIDE = 1568;            // Claude shrinks anything bigger to this anyway
@@ -46,16 +50,19 @@ function toUsage(row: UsageRow | undefined): ScanUsage | null {
 }
 
 // Is the bar at a limit? -> the message to show, or null
-export function limitReached(usage: ScanUsage | null): string | null {
+export function limitReached(usage: ScanUsage | null, kind: ScanKind = "invoice"): string | null {
     if (!usage) return null;
-    if (usage.month >= usage.monthlyLimit) return "This bar has used its " + usage.monthlyLimit + " scans for this month. They reset on the 1st.";
-    if (usage.today >= usage.dailyLimit) return "This bar has used its " + usage.dailyLimit + " scans for today. Type this invoice in, or scan it tomorrow.";
+    const noun = kind === "invoice" ? "scans" : "recipe pages";
+    if (usage.month >= usage.monthlyLimit) return "This bar has used its " + usage.monthlyLimit + " " + noun + " for this month. They reset on the 1st.";
+    if (usage.today >= usage.dailyLimit) return "This bar has used its " + usage.dailyLimit + " " + noun + " for today. Try again tomorrow.";
     return null;
 }
 
-// How many scans the bar has used (null if scanning.sql hasn't been run yet)
-export async function scanUsage(barId: string): Promise<ScanUsage | null> {
-    const { data, error } = await supabase!.rpc("scan_usage", { target_bar: barId });
+// How many scans the bar has used (null if the limits SQL hasn't been run yet)
+export async function scanUsage(barId: string, kind: ScanKind = "invoice"): Promise<ScanUsage | null> {
+    const args: Record<string, string> = { target_bar: barId };
+    if (kind !== "invoice") args.scan_kind = kind;
+    const { data, error } = await supabase!.rpc("scan_usage", args);
     if (error) return null;
     return toUsage((data as UsageRow[])[0]);
 }
@@ -77,14 +84,31 @@ export async function shrinkPhoto(file: File): Promise<ScanPage> {
 }
 
 export async function scanInvoice(barId: string, pages: ScanPage[]): Promise<ScanReply> {
-    const { data, error } = await supabase!.functions.invoke("scan-invoice", { body: { barId, images: pages } });
+    const reply = await callScanner<{ invoice: ScannedInvoice }>("scan-invoice", barId, pages);
+    return reply.ok ? { ok: true, invoice: reply.data.invoice, warnings: reply.warnings, usage: reply.usage } : reply;
+}
+
+export type RecipeReply =
+    | { ok: true; recipes: ScannedRecipe[]; warnings: string[]; usage: ScanUsage | null }
+    | { ok: false; error: string; usage: ScanUsage | null };
+
+// One recipe book page -> the recipes on it
+export async function scanRecipePage(barId: string, page: ScanPage): Promise<RecipeReply> {
+    const reply = await callScanner<{ recipes: ScannedRecipe[] }>("scan-recipes", barId, [page]);
+    return reply.ok ? { ok: true, recipes: reply.data.recipes, warnings: reply.warnings, usage: reply.usage } : reply;
+}
+
+// Call a scanning function -> its answer, or a message saying what went wrong
+async function callScanner<T>(name: string, barId: string, pages: ScanPage[])
+    : Promise<{ ok: true; data: T; warnings: string[]; usage: ScanUsage | null } | { ok: false; error: string; usage: ScanUsage | null }> {
+    const { data, error } = await supabase!.functions.invoke(name, { body: { barId, images: pages } });
     if (!error) {
-        const reply = data as { invoice: ScannedInvoice; warnings: string[]; usage?: UsageRow };
-        return { ok: true, invoice: reply.invoice, warnings: reply.warnings ?? [], usage: toUsage(reply.usage) };
+        const reply = data as T & { warnings?: string[]; usage?: UsageRow };
+        return { ok: true, data: reply, warnings: reply.warnings ?? [], usage: toUsage(reply.usage) };
     }
     try {
         const detail = await (error as { context?: Response }).context?.json();
         if (detail?.error) return { ok: false, error: detail.error, usage: toUsage(detail.usage) };
     } catch { /* not a JSON error body */ }
-    return { ok: false, error: "Couldn't reach the scanner. Is the scan-invoice function deployed? (" + error.message + ")", usage: null };
+    return { ok: false, error: "Couldn't reach the scanner. Is the " + name + " function deployed? (" + error.message + ")", usage: null };
 }

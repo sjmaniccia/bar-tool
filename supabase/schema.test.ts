@@ -51,6 +51,7 @@ beforeAll(async () => {
     await db.exec(readFileSync(new URL("./schema.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./pos.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./scanning.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("./recipe-scanning.sql", import.meta.url), "utf8"));
     await db.exec(`
         insert into auth.users values
             ('${OWNER}', 'owner@bar.com', now()),
@@ -182,6 +183,27 @@ describe("invoice scan limits", () => {
         // (Whether yesterday is still this month depends on today's date, so only the day is exact)
         expect(next.today_count).toBe(1);
         expect(next.month_count as number).toBeGreaterThanOrEqual(1);
+    });
+
+    test("recipe pages have their own, separate allowance", async () => {
+        const invoicesBefore = (await as(OWNER, "select * from public.scan_usage($1)", [barId])).rows[0];
+        await db.exec("set role service_role;");
+        try {
+            const first = await db.query<Record<string, unknown>>("select * from public.claim_scan($1, $2, 1, 'recipe')", [barId, OWNER]);
+            expect(first.rows[0]).toMatchObject({ today_count: 1, daily_limit: 150, monthly_limit: 600 });
+            // (only you change limits, from the SQL Editor)
+            await db.exec(`reset role; update public.scan_limits set recipe_daily_limit = 1 where bar_id = '${barId}'; set role service_role;`);
+            const second = await db.query<Record<string, unknown>>("select * from public.claim_scan($1, $2, 1, 'recipe')", [barId, OWNER]);
+            expect(second.rows[0]).toMatchObject({ scan_id: null, daily_limit: 1 });
+            await expect(db.query("select * from public.claim_scan($1, $2, 1, 'pizza')", [barId, OWNER])).rejects.toThrow();
+        } finally {
+            await db.exec("reset role;");
+        }
+        // Invoices weren't touched by any of that
+        const invoicesAfter = (await as(OWNER, "select * from public.scan_usage($1)", [barId])).rows[0];
+        const recipes = await as(OWNER, "select * from public.scan_usage($1, 'recipe')", [barId]);
+        expect(recipes.rows[0]).toMatchObject({ today_count: 1 });
+        expect(invoicesAfter).toEqual(invoicesBefore);
     });
 
     test("members see usage; others see nothing", async () => {

@@ -52,7 +52,10 @@ export default function RecipesList() {
         <div className="page">
             <div className="page-header">
                 <h1>All Recipes</h1>
-                <button onClick={newRecipe}>+ New recipe</button>
+                <div className="button-row">
+                    <Link className="button secondary" to="/recipes/scan">📷 Scan recipes</Link>
+                    <button onClick={newRecipe}>+ New recipe</button>
+                </div>
             </div>
 
             <div className="toolbar">

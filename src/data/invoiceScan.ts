@@ -7,8 +7,13 @@
 //                1. REMEMBERED: this vendor's line was matched before (by item code or name)
 //                2. CODE: the item code equals a purchase unit's SKU
 //                3. SUGGESTED: the product's name words appear in the line, with a size bonus
-//              Fees (deposits, fuel) and credits (returns) start out skipped
-//     CREATE   a draft invoice with the matched lines, and remember every match, so the
+//              Each line is used as a PRODUCT, a CHARGE (money that isn't a product:
+//              fees, deposits, subscriptions, credits) or SKIPPED:
+//                  fees and credits -> charges
+//                  printed as 0 but charged, with no product match -> a charge (a service)
+//                  nothing shipped and nothing charged -> skipped
+//     TOTALS   products + charges + tax should equal the invoice total the manager confirmed
+//     CREATE   a draft invoice with the lines and charges, and remember every match, so the
 //              next invoice from this vendor matches itself. Approving it (on the invoice
 //              page) records the new prices and shows which recipe costs moved.
 //
@@ -26,13 +31,22 @@ export type { ScannedInvoice, ScannedLine };
 
 export type MatchHow = "remembered" | "code" | "suggested" | "picked" | "none";    // picked = by the manager
 
+export type LineUse = "product" | "charge" | "skip";
+
 export interface DraftLine {
     scanned: ScannedLine;
     purchaseUnitId: string | null;
     how: MatchHow;
-    skip: boolean;
+    use: LineUse;
     quantity: number;
     unitPrice: number;
+}
+
+// A charge the manager adds that wasn't a line on the scan
+export interface ExtraCharge {
+    id: string;
+    description: string;
+    amount: number;
 }
 
 export interface Draft {
@@ -40,7 +54,11 @@ export interface Draft {
     vendorName: string;
     number: string;
     date: string;
+    subtotal: number | null;     // as printed (and confirmed on the first screen)
+    tax: number | null;
+    total: number | null;
     lines: DraftLine[];
+    extraCharges: ExtraCharge[];
 }
 
 
@@ -118,10 +136,11 @@ export function fitScore(line: ScannedLine, unit: PurchaseUnit): number {
     return score;
 }
 
-export function matchLine(line: ScannedLine, vendorId: string | null): { purchaseUnitId: string | null; how: MatchHow } {
+export function matchLine(line: ScannedLine, vendorId: string | null): { purchaseUnitId: string | null; how: MatchHow; asCharge?: boolean } {
     const key = lineKey(line);
     if (vendorId) {
         const link = db.invoiceItemLinks.find((l) => l.vendorId === vendorId && l.key === key);
+        if (link?.asCharge) return { purchaseUnitId: null, how: "remembered", asCharge: true };
         if (link && findById(db.purchaseUnits, link.purchaseUnitId)) return { purchaseUnitId: link.purchaseUnitId, how: "remembered" };
     }
     if (line.sku) {
@@ -143,6 +162,18 @@ export function matchLine(line: ScannedLine, vendorId: string | null): { purchas
     return { purchaseUnitId: null, how: "none" };
 }
 
+// How one line starts out: as a product (matched or not), a charge, or skipped
+function startLine(line: ScannedLine, vendorId: string | null): Pick<DraftLine, "purchaseUnitId" | "how" | "use"> {
+    // Nothing shipped and nothing charged (out of stock): nothing to enter
+    if (line.quantity === 0 && !line.lineTotal) return { purchaseUnitId: null, how: "none", use: "skip" };
+    if (line.kind !== "item") return { purchaseUnitId: null, how: "none", use: "charge" };
+    const match = matchLine(line, vendorId);
+    if (match.asCharge) return { purchaseUnitId: null, how: "remembered", use: "charge" };
+    // Printed as 0 but charged, and not a product we know: most likely a service
+    if (match.purchaseUnitId === null && line.zeroQuantity) return { purchaseUnitId: null, how: "none", use: "charge" };
+    return { purchaseUnitId: match.purchaseUnitId, how: match.how, use: "product" };
+}
+
 // Everything matched as well as it can be, ready for the manager to check
 export function buildDraft(scan: ScannedInvoice): Draft {
     const vendorId = matchVendor(scan.vendorName);
@@ -151,28 +182,49 @@ export function buildDraft(scan: ScannedInvoice): Draft {
         vendorName: scan.vendorName,
         number: scan.invoiceNumber,
         date: scan.invoiceDate,
-        lines: scan.lines.map((line) => {
-            const match = line.kind === "item" ? matchLine(line, vendorId) : { purchaseUnitId: null, how: "none" as MatchHow };
-            return {
-                scanned: line,
-                ...match,
-                skip: line.kind !== "item",
-                quantity: line.quantity,
-                unitPrice: line.unitPrice ?? 0
-            };
-        })
+        subtotal: scan.subtotal,
+        tax: scan.tax,
+        total: scan.total,
+        lines: scan.lines.map((line) => ({
+            scanned: line,
+            ...startLine(line, vendorId),
+            quantity: line.quantity,
+            unitPrice: line.unitPrice ?? 0
+        })),
+        extraCharges: []
     };
 }
 
 // Re-match after the manager picks a different vendor (remembered links are per vendor)
-//     lines the manager picked by hand stay as they are
+//     lines the manager picked or changed by hand stay as they are
 export function rematch(draft: Draft, vendorId: string | null): Draft {
     return {
         ...draft,
         vendorId,
-        lines: draft.lines.map((l) => (l.scanned.kind === "item" && l.how !== "picked" && !l.skip
-            ? { ...l, ...matchLine(l.scanned, vendorId) }
-            : l))
+        lines: draft.lines.map((l) => (l.how !== "picked" ? { ...l, ...startLine(l.scanned, vendorId) } : l))
+    };
+}
+
+// What a line costs (credits are negative)
+export function lineAmount(line: DraftLine): number {
+    return Math.round(line.quantity * line.unitPrice * 100) / 100;
+}
+
+// The money check: what's going on the invoice vs. what the invoice says to pay
+export function draftTotals(draft: Draft) {
+    let products = 0;
+    let charges = 0;
+    for (const line of draft.lines) {
+        if (line.use === "product" && line.purchaseUnitId) products += lineAmount(line);
+        if (line.use === "charge") charges += lineAmount(line);
+    }
+    for (const extra of draft.extraCharges) charges += extra.amount;
+    const tax = draft.tax ?? 0;
+    const entered = Math.round((products + charges + tax) * 100) / 100;
+    const target = draft.total ?? (draft.subtotal !== null ? draft.subtotal + tax : null);
+    return {
+        products, charges, tax, entered, target,
+        off: target === null ? null : Math.round((entered - target) * 100) / 100
     };
 }
 
@@ -267,12 +319,12 @@ export function ensureVendor(draft: Draft): string {
     return draft.vendorId ?? createVendor(vendorDisplayName(draft.vendorName));
 }
 
-// The lines nothing matched (items only: fees and credits stay skipped)
+// The product lines nothing matched (charges and skipped lines aren't products)
 export function unmatchedLines(draft: Draft): number[] {
     const out: number[] = [];
     for (let i = 0; i < draft.lines.length; i++) {
         const line = draft.lines[i];
-        if (line.scanned.kind === "item" && !line.skip && !line.purchaseUnitId) out.push(i);
+        if (line.use === "product" && !line.purchaseUnitId) out.push(i);
     }
     return out;
 }
@@ -299,24 +351,41 @@ export function addUnmatchedAsProducts(draft: Draft): { draft: Draft; added: num
 
 // Make the draft invoice and remember every match for next time. Returns the invoice id.
 //     IF the vendor is new -> add it first
-//     FOR each line that isn't skipped and has a product -> an invoice line
-//     Skipped lines are listed in the invoice's note, so nothing silently disappears
+//     product lines with a product -> invoice lines
+//     charge lines, added charges and tax -> charges (so the total is what's owed)
+//     anything not entered is listed in the invoice's note, so nothing silently disappears
 export function createInvoiceFromDraft(draft: Draft): string {
     const vendorId = ensureVendor(draft);
     const invoiceId = makeId();
-    const used = draft.lines.filter((l) => !l.skip && l.purchaseUnitId);
-    const skipped = draft.lines.filter((l) => !used.includes(l));
+    const products = draft.lines.filter((l) => l.use === "product" && l.purchaseUnitId);
+    const charges = draft.lines.filter((l) => l.use === "charge");
+    const left = draft.lines.filter((l) => !products.includes(l) && !charges.includes(l));
     db.invoices.push({
         id: invoiceId, vendorId, orderId: null, number: draft.number, invoiceDate: draft.date || new Date().toISOString().slice(0, 10),
         status: "unreconciled",
-        note: "Scanned from a photo." + (skipped.length > 0 ? " Not entered: " + skipped.map((l) => l.scanned.description).join("; ") + "." : "")
+        note: "Scanned from a photo." + (left.length > 0 ? " Not entered: " + left.map((l) => l.scanned.description).join("; ") + "." : "")
     });
-    for (const line of used) {
+    for (const line of products) {
         db.invoiceLines.push({ id: makeId(), invoiceId, purchaseUnitId: line.purchaseUnitId!, quantity: line.quantity, unitPrice: line.unitPrice });
+    }
+    for (const line of charges) {
+        db.invoiceCharges.push({ id: makeId(), invoiceId, description: line.scanned.description, amount: lineAmount(line) });
+    }
+    for (const extra of draft.extraCharges) {
+        if (extra.amount !== 0) db.invoiceCharges.push({ id: makeId(), invoiceId, description: extra.description || "Charge", amount: extra.amount });
+    }
+    if (draft.tax) db.invoiceCharges.push({ id: makeId(), invoiceId, description: "Tax", amount: draft.tax });
+
+    // Remember: products by purchase unit, and item lines that are really charges
+    for (const line of draft.lines) {
+        if (line.scanned.kind !== "item") continue;
+        const asCharge = line.use === "charge";
+        if (!asCharge && !(line.use === "product" && line.purchaseUnitId)) continue;
         const key = lineKey(line.scanned);
         const link = db.invoiceItemLinks.find((l) => l.vendorId === vendorId && l.key === key);
-        if (link) link.purchaseUnitId = line.purchaseUnitId!;
-        else db.invoiceItemLinks.push({ id: makeId(), vendorId, key, purchaseUnitId: line.purchaseUnitId! });
+        const remembered = { purchaseUnitId: asCharge ? "" : line.purchaseUnitId!, asCharge };
+        if (link) Object.assign(link, remembered);
+        else db.invoiceItemLinks.push({ id: makeId(), vendorId, key, ...remembered });
     }
     commit();
     return invoiceId;

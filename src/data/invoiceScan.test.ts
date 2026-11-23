@@ -4,9 +4,10 @@
 
 import { beforeEach, describe, expect, test } from "vitest";
 import { db } from "./storage";
+import { invoiceTotal } from "./purchasing";
 import { sampleData } from "./sampleData";
 import {
-    addUnmatchedAsProducts, buildDraft, createInvoiceFromDraft, createProductFromLine, guessFamily, matchLine,
+    addUnmatchedAsProducts, buildDraft, createInvoiceFromDraft, draftTotals, createProductFromLine, guessFamily, matchLine,
     matchVendor, packFromText, productName, vendorDisplayName, words, type ScannedInvoice, type ScannedLine
 } from "./invoiceScan";
 
@@ -76,8 +77,28 @@ describe("lines", () => {
     });
 });
 
+describe("split cases and empty lines", () => {
+    test("a line with nothing shipped and nothing charged starts out skipped", () => {
+        const draft = buildDraft({
+            vendorName: "SG", invoiceNumber: "", invoiceDate: "", subtotal: null, tax: null, total: null,
+            lines: [line("ISLAND WHITE RUM 12/1L", { quantity: 0, unitPrice: 215, lineTotal: 0 })]
+        });
+        expect(draft.lines[0].use).toBe("skip");
+    });
+
+    test("a quarter case goes on the invoice at the case price", () => {
+        const draft = buildDraft({
+            vendorName: "Southern Glazer's", invoiceNumber: "Q", invoiceDate: "2026-11-22", subtotal: 53.75, tax: 0, total: 53.75,
+            lines: [line("ISLAND WHITE RUM 12/1L", { quantity: 0.25, bottles: 3, unitPrice: 215, lineTotal: 53.75 })]
+        });
+        expect(draft.lines[0]).toMatchObject({ purchaseUnitId: "pu-rum-case", use: "product" });
+        const id = createInvoiceFromDraft(draft);
+        expect(db.invoiceLines.filter((l) => l.invoiceId === id)).toEqual([expect.objectContaining({ quantity: 0.25, unitPrice: 215 })]);
+    });
+});
+
 describe("creating the invoice", () => {
-    test("adds matched lines, skips fees, and notes what was left out", () => {
+    test("adds matched lines and enters fees as charges", () => {
         const scan: ScannedInvoice = {
             vendorName: "SOUTHERN GLAZERS", invoiceNumber: "778812", invoiceDate: "2026-11-20",
             lines: [
@@ -88,14 +109,16 @@ describe("creating the invoice", () => {
         };
         const draft = buildDraft(scan);
         expect(draft.vendorId).toBe("v-sg");
-        expect(draft.lines[1].skip).toBe(true);
+        expect(draft.lines[1].use).toBe("charge");
+        expect(draftTotals(draft)).toMatchObject({ products: 430, charges: 4.5, entered: 434.5, off: 0 });
 
         const id = createInvoiceFromDraft(draft);
         const invoice = db.invoices.find((i) => i.id === id)!;
         expect(invoice).toMatchObject({ vendorId: "v-sg", number: "778812", invoiceDate: "2026-11-20", status: "unreconciled" });
-        expect(invoice.note).toContain("FUEL SURCHARGE");
         const lines = db.invoiceLines.filter((l) => l.invoiceId === id);
         expect(lines).toEqual([expect.objectContaining({ purchaseUnitId: "pu-rum-case", quantity: 2, unitPrice: 215 })]);
+        expect(db.invoiceCharges.filter((c) => c.invoiceId === id)).toEqual([expect.objectContaining({ description: "FUEL SURCHARGE", amount: 4.5 })]);
+        expect(invoiceTotal(id)).toBe(434.5);
     });
 
     test("adds a new vendor when the printed one isn't on file", () => {
@@ -165,5 +188,33 @@ describe("filling in a new bar from an invoice", () => {
         expect(again.vendorId).toBe(draft.vendorId);
         expect(again.lines.slice(0, 2).map((l) => l.how)).toEqual(["remembered", "remembered"]);
         expect(db.vendors.filter((v) => v.companyName.startsWith("Breakthru"))).toHaveLength(1);
+    });
+});
+
+describe("charges", () => {
+    const base = { vendorName: "Southern Glazer's", invoiceNumber: "C-1", invoiceDate: "2026-11-22" };
+
+    test("a 0-quantity line with a charge and no product becomes a charge, and is remembered as one", () => {
+        const scan: ScannedInvoice = {
+            ...base, subtotal: 455, tax: 32.5, total: 487.5,
+            lines: [
+                line("ISLAND WHITE RUM 12/1L", { quantity: 2, unitPrice: 215, lineTotal: 430 }),
+                line("WINE LIST APP SUBSCRIPTION", { quantity: 1, unitPrice: 25, lineTotal: 25, zeroQuantity: true, warning: "Quantity read as 0" })
+            ]
+        };
+        const draft = buildDraft(scan);
+        expect(draft.lines[1]).toMatchObject({ use: "charge", purchaseUnitId: null });
+        // Tax counts toward the total, and a hand-added credit too
+        draft.extraCharges.push({ id: "x", description: "Credit for broken bottle", amount: -10 });
+        expect(draftTotals(draft)).toMatchObject({ products: 430, charges: 15, tax: 32.5, entered: 477.5, target: 487.5, off: -10 });
+
+        const id = createInvoiceFromDraft(draft);
+        const charges = db.invoiceCharges.filter((c) => c.invoiceId === id).map((c) => [c.description, c.amount]);
+        expect(charges).toEqual([["WINE LIST APP SUBSCRIPTION", 25], ["Credit for broken bottle", -10], ["Tax", 32.5]]);
+        expect(invoiceTotal(id)).toBe(477.5);
+
+        // Next month the subscription line is a charge without asking
+        const next = buildDraft({ ...scan, invoiceNumber: "C-2" });
+        expect(next.lines[1]).toMatchObject({ use: "charge", how: "remembered" });
     });
 });

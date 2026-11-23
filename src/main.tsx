@@ -34,6 +34,7 @@ import CountDetail from "./pages/CountDetail";
 import OrdersList from "./pages/OrdersList";
 import OrderDetail from "./pages/OrderDetail";
 import ScanInvoice from "./pages/ScanInvoice";
+import ScanRecipes from "./pages/ScanRecipes";
 import InvoicesList from "./pages/InvoicesList";
 import InvoiceDetail from "./pages/InvoiceDetail";
 import MenusList from "./pages/MenusList";
@@ -80,6 +81,7 @@ const router = createHashRouter([
             { index: true, element: <Navigate to="/recipes" replace /> },   // recipes are the home page
             { path: "dashboard", element: <Dashboard /> },
             { path: "recipes", element: <RecipesList /> },
+            { path: "recipes/scan", element: <ScanRecipes /> },
             { path: "recipes/:recipeId", element: <RecipeDetail /> },   // :recipeId is filled from the address
             { path: "products", element: <ProductsList /> },
             { path: "products/:productId", element: <ProductDetail /> },

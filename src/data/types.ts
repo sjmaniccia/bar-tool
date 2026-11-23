@@ -178,6 +178,15 @@ export interface InvoiceLine {
     unitPrice: number;     // price per purchase unit on the paper invoice
 }
 
+// Money on an invoice that isn't a product: delivery, fuel, deposits, a subscription,
+// a split-case fee. A credit (a return, a refund) is a negative amount.
+export interface InvoiceCharge {
+    id: string;
+    invoiceId: string;
+    description: string;
+    amount: number;
+}
+
 
 // ===== Sales (from the POS) =====
 
@@ -212,11 +221,13 @@ export interface PosLink {
 
 // Remembers which product a supplier's invoice line is, so the next scan matches itself
 //     key = "sku:10432" when the invoice prints an item code, else "desc:island white rum 12 1l"
+//     asCharge = this line is a charge, not a product (a subscription, a service fee)
 export interface InvoiceItemLink {
     id: string;
     vendorId: string;
     key: string;
-    purchaseUnitId: string;
+    purchaseUnitId: string;    // "" when asCharge
+    asCharge?: boolean;
 }
 
 
@@ -273,6 +284,7 @@ export interface Database {
     orderLines: OrderLine[];
     invoices: Invoice[];
     invoiceLines: InvoiceLine[];
+    invoiceCharges: InvoiceCharge[];
     menus: Menu[];
     menuItems: MenuItem[];
     salesImports: SalesImport[];

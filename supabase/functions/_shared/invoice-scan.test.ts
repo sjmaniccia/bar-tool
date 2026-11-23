@@ -2,7 +2,7 @@
 // Checks the clean-up of what Claude reads off an invoice.
 
 import { describe, expect, test } from "vitest";
-import { cleanScan, toNumber } from "./invoice-scan";
+import { cleanScan, packCount, toNumber } from "./invoice-scan";
 
 describe("invoice scan clean-up", () => {
     test("money text becomes numbers", () => {
@@ -43,5 +43,37 @@ describe("invoice scan clean-up", () => {
     test("returns become negative credits", () => {
         const { invoice } = cleanScan({ vendor_name: "X", lines: [{ description: "BROKEN BOTTLE RETURN", quantity: 1, unit_price: 19, kind: "credit" }] });
         expect(invoice.lines[0]).toMatchObject({ quantity: -1, kind: "credit" });
+    });
+
+    test("split cases become a fraction of a case when the price is per case", () => {
+        expect(packCount("12/1L")).toBe(12);
+        const { invoice } = cleanScan({
+            vendor_name: "SG", lines: [
+                { description: "TITOS VODKA", pack_size: "12/1L", quantity: 0, bottles: 3, unit: "CS", unit_price: 252, line_total: 63, kind: "item" },
+                { description: "CASAMIGOS BLANCO", pack_size: "6/750ML", quantity: 1, bottles: 2, unit: "CS", unit_price: 270, line_total: 360, kind: "item" }
+            ]
+        });
+        expect(invoice.lines[0]).toMatchObject({ quantity: 0.25, bottles: 3, unitPrice: 252, lineTotal: 63, warning: "" });
+        expect(invoice.lines[1]).toMatchObject({ quantity: 1.3333, unitPrice: 270, warning: "" });
+    });
+
+    test("loose bottles priced per bottle stay bottles", () => {
+        const { invoice } = cleanScan({
+            vendor_name: "SG", lines: [{ description: "APEROL", pack_size: "12/1L", quantity: 0, bottles: 2, unit: "CS", unit_price: 25, line_total: 50, kind: "item" }]
+        });
+        expect(invoice.lines[0]).toMatchObject({ quantity: 2, unit: "bottle", unitPrice: 25, lineTotal: 50 });
+    });
+
+    test("a 0 quantity with a charge is worked out from the money, with a warning", () => {
+        const { invoice, warnings } = cleanScan({
+            vendor_name: "SG", lines: [
+                { description: "FERNET BRANCA 12/750", quantity: 0, unit: "CS", unit_price: 300, line_total: 75, kind: "item" },
+                { description: "SPLIT CASE CHARGE", quantity: 0, line_total: 4, kind: "fee" }
+            ], subtotal: 79
+        });
+        expect(invoice.lines[0]).toMatchObject({ quantity: 0.25, unitPrice: 300, lineTotal: 75 });
+        expect(invoice.lines[0].warning).toMatch(/read as 0.*Entered as 0\.25/);
+        expect(invoice.lines[1]).toMatchObject({ quantity: 1, unitPrice: 4, lineTotal: 4 });
+        expect(warnings).toEqual([]);
     });
 });

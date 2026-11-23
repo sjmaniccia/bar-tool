@@ -2,14 +2,16 @@
 // One invoice, checked line by line against the delivery.
 //     Type each line's quantity and price as printed on the paper invoice.
 //     A price that differs from what you had is flagged (up in red, down in green).
+//     Charges are money that isn't a product: delivery, deposits, a subscription, a credit.
 //     Reconciled = checked against what showed up. Approve = record the prices and lock it.
 
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useDb } from "../data/storage";
 import {
-    addInvoiceLine, approveInvoice, deleteInvoice, invoiceTotal, removeInvoiceLine,
-    setInvoiceStatus, updateInvoice, updateInvoiceLine
+    addInvoiceCharge, addInvoiceLine, approveInvoice, deleteInvoice, invoiceChargesTotal, invoiceProductsTotal,
+    invoiceTotal, removeInvoiceCharge, removeInvoiceLine, setInvoiceStatus, updateInvoice, updateInvoiceCharge,
+    updateInvoiceLine
 } from "../data/purchasing";
 import { buyName, unitsFromVendor } from "../data/library";
 import { formatOf, formatName, productOf } from "../data/costing";
@@ -46,6 +48,7 @@ export default function InvoiceDetail() {
 
     const vendor = findById(db.vendors, invoice.vendorId);
     const lines = db.invoiceLines.filter((l) => l.invoiceId === invoice.id);
+    const charges = db.invoiceCharges.filter((c) => c.invoiceId === invoice.id);
     const locked = invoice.status === "approved";
     const order = findById(db.orders, invoice.orderId);
     // Lines whose price is different from the current one (these get recorded on approval)
@@ -84,7 +87,7 @@ export default function InvoiceDetail() {
                 <div className="button-row">
                     {invoice.status === "unreconciled" && <button className="secondary" onClick={() => setInvoiceStatus(invoice.id, "reconciled")}>Mark reconciled</button>}
                     {invoice.status === "reconciled" && <button className="secondary" onClick={() => setInvoiceStatus(invoice.id, "unreconciled")}>Mark unreconciled</button>}
-                    {!locked && <button onClick={approve} disabled={lines.length === 0}>Approve</button>}
+                    {!locked && <button onClick={approve} disabled={lines.length === 0 && charges.length === 0}>Approve</button>}
                     <button className="danger" onClick={remove}>Delete</button>
                 </div>
             </div>
@@ -119,7 +122,6 @@ export default function InvoiceDetail() {
                         <label className="form-field span-2"><span>Note</span>
                             <TextInput value={invoice.note} placeholder="Shorts, breakage, credits owed…" onSave={(note) => updateInvoice(invoice.id, { note })} /></label>
                     </div>
-                    {/* FIXME: scan a photo of the paper invoice to fill the lines in */}
                 </section>
             )}
 
@@ -158,7 +160,7 @@ export default function InvoiceDetail() {
                                 })}
                             </tbody>
                             <tfoot>
-                                <tr><td colSpan={4}><strong>Total</strong></td><td className="num"><strong>{formatMoney(invoiceTotal(invoice.id))}</strong></td>{!locked && <td></td>}</tr>
+                                <tr><td colSpan={4}><strong>Products</strong></td><td className="num"><strong>{formatMoney(invoiceProductsTotal(invoice.id))}</strong></td>{!locked && <td></td>}</tr>
                             </tfoot>
                         </table>
                     </div>
@@ -172,6 +174,50 @@ export default function InvoiceDetail() {
                         <button className="secondary" disabled={adding === ""} onClick={() => { addInvoiceLine(invoice.id, adding); setAdding(""); }}>Add</button>
                     </div>
                 )}
+            </section>
+
+            <section className="card table-card">
+                <h2>Charges</h2>
+                <p className="card-pad muted small charges-hint">
+                    Money that isn't a product: delivery, fuel, deposits, a subscription, a split-case fee.
+                    A credit or refund is a negative amount, like -12.00.
+                </p>
+                {charges.length > 0 && (
+                    <div className="table-scroll">
+                        <table className="table">
+                            <thead>
+                                <tr><th>What for</th><th className="num">Amount</th>{!locked && <th></th>}</tr>
+                            </thead>
+                            <tbody>
+                                {charges.map((charge) => (
+                                    <tr key={charge.id}>
+                                        <td>{locked ? charge.description || "Charge" : <TextInput value={charge.description} placeholder="Delivery fee, keg deposit…"
+                                            ariaLabel="What the charge is for" onSave={(description) => updateInvoiceCharge(charge.id, { description })} />}</td>
+                                        <td className="num">{locked ? formatMoney(charge.amount) : <AmountInput value={charge.amount} money allowNegative className="qty-input wide"
+                                            ariaLabel="Charge amount" onSave={(v) => v !== null && updateInvoiceCharge(charge.id, { amount: v })} />}</td>
+                                        {!locked && <td className="num"><button className="danger icon-button" aria-label="Remove charge" onClick={() => removeInvoiceCharge(charge.id)}>✕</button></td>}
+                                    </tr>
+                                ))}
+                            </tbody>
+                            <tfoot>
+                                <tr><td><strong>Charges</strong></td><td className="num"><strong>{formatMoney(invoiceChargesTotal(invoice.id))}</strong></td>{!locked && <td></td>}</tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                )}
+                {!locked && (
+                    <div className="add-line card-pad">
+                        <button className="secondary" onClick={() => addInvoiceCharge(invoice.id)}>+ Add a charge</button>
+                    </div>
+                )}
+            </section>
+
+            <section className="stat-row">
+                <div className="stat">
+                    <span className="stat-label">Invoice total</span>
+                    <span className="stat-value">{formatMoney(invoiceTotal(invoice.id))}</span>
+                    <span className="stat-ratio">{formatMoney(invoiceProductsTotal(invoice.id))} products + {formatMoney(invoiceChargesTotal(invoice.id))} charges</span>
+                </div>
             </section>
         </div>
     );

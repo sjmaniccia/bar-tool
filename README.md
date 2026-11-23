@@ -19,7 +19,8 @@ Recipe costing and inventory for bars, kitchens and breweries, built by a former
 - Accounts and teams (Supabase): owner, manager and staff roles enforced by the database,
   syncing between devices with offline changes sent when the connection is back
 - Square connection: daily sales come in by themselves (a Supabase Edge Function holds the keys)
-- Invoice scanning: photograph an invoice, Claude reads it, lines match to your products and the matches are remembered per vendor
+- Invoice scanning: photograph an invoice, confirm the total, and lines match to your products (or go on as charges); matches are remembered per vendor
+- Recipe scanning: photograph a recipe book, check the recipes, save them all at once
 
 ## Built with
 React 19, TypeScript 7, Vite 8, React Router 8, Vitest. Supabase (Postgres, Auth, Realtime)
@@ -66,7 +67,7 @@ src/
     records.ts     the diff/merge math (tested without a network)
     access.ts      which pages each role can open
     pos.ts         Square connect / sync from the app's side
-    scan.ts        shrinks invoice photos and sends them to the scanner
+    scan.ts        shrinks photos and sends them to the scanners
     team.ts        members and invites
   components/    pieces of screens (layout, inputs, status badges, recipe sections)
   pages/         one file per screen
@@ -76,6 +77,8 @@ supabase/
   pos.sql          POS connection tables (keys readable only by the server)
   functions/square the Square server function (connect, sync, disconnect)
   functions/scan-invoice  reads invoice photos with Claude (holds the Anthropic key)
+  functions/scan-recipes  reads recipe book pages with Claude
+  recipe-scanning.sql  recipe page limits (150 a day, 600 a month by default)
   scanning.sql     scan limits per bar (20 a day, 300 a month by default)
   square-test-sales.mjs  rings up fake sales in Square's sandbox
 ```
@@ -92,6 +95,7 @@ supabase/
 - ✅ Open-bottle picker, barcode scanning, backup/export/import, installable offline app
 - ✅ Accounts, teams with owner/manager/staff roles, multi-device sync, offline changes
 - ✅ Square connection with daily sales sync
-- ✅ Invoice photo scanning with remembered matches
+- ✅ Invoice photo scanning with remembered matches, charges and a total check
+- ✅ Recipe book scanning
 - 🔜 Toast connection, invite emails, hiding costs from staff screens
 - 🔜 Invoice photo scanning

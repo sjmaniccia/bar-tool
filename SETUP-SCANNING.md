@@ -1,7 +1,10 @@
-# Invoice scanning setup
+# Scanning setup (invoices and recipes)
 
-Managers take photos of a paper invoice. Claude reads them, and Agave matches each
-line to your products. About 15 minutes to set up, one time.
+Managers take photos of a paper invoice, or of the pages of a recipe book. Claude reads
+them, and Agave matches the lines to your products or ingredients. About 15 minutes to
+set up, one time.
+
+**Already set up invoice scanning?** Skip to [Adding recipe scanning](#adding-recipe-scanning).
 
 How it works:
 
@@ -17,7 +20,8 @@ Cost: Claude Haiku 5.5, about a tenth of a cent per page. 1,000 invoices is roug
 
 Two things keep the bill from running away:
 
-- **Scan limits per bar**: 20 scans a day and 300 a month. The server checks the limit
+- **Scan limits per bar**: 20 invoice scans a day and 300 a month; 150 recipe pages a day
+  and 600 a month (recipe books get scanned in big batches). The server checks the limit
   *before* sending anything to Claude, so a blocked scan costs nothing. If Claude is down
   or refuses a request (not billed), the scan is given back.
 - **The Anthropic spend limit** (step 1): a hard cap on the whole account, in case of anything else.
@@ -36,6 +40,7 @@ chat, `.env.local`, GitHub, or a note.
 
 Supabase dashboard > **SQL Editor** > New query. Open `supabase/scanning.sql` in VS Code,
 copy all of it, paste it in, and click **Run**. It should say "Success. No rows returned".
+Then do the same, in a fresh query, with `supabase/recipe-scanning.sql`.
 
 To give one bar more scans later (say, when it's on a paid plan), the instructions are at
 the top of that file. Only you can do that, from the SQL Editor: bar owners can't raise
@@ -51,17 +56,18 @@ Supabase dashboard > your project > **Edge Functions** > **Secrets** > Add new s
 
 As with the Square secret, Supabase shows only part of it after saving. That's normal.
 
-## 4. Put the function online (Terminal, 2 minutes)
+## 4. Put the functions online (Terminal, 2 minutes)
 
 From the `bar-tool` folder (you're already logged in from the Square setup):
 
 ```
 npx supabase functions deploy scan-invoice --remote=YOUR-REF --use-api
+npx supabase functions deploy scan-recipes --remote=YOUR-REF --use-api
 ```
 
-It should end with "Deployed Functions on project YOUR-REF: scan-invoice".
-This one keeps Supabase's sign-in check on (no `--no-verify-jwt`): only signed-in users
-can reach it, and the function then lets only owners and managers in.
+Each should end with "Deployed Functions on project YOUR-REF: ...".
+These keep Supabase's sign-in check on (no `--no-verify-jwt`): only signed-in users
+can reach them, and the functions then let only owners and managers in.
 
 ## 5. Push the app and try it
 
@@ -72,6 +78,13 @@ git push
 ```
 
 When GitHub Actions finishes: **Invoices** > **📷 Scan invoice** > take a photo > **Read invoice**.
+
+1. **Confirm** the vendor, invoice number, date and total against the paper. The total is what
+   every line gets checked against next, so get it right here.
+2. **Check the items.** Each line goes on as a product, a **charge** (money that isn't a product:
+   delivery, deposits, a subscription, a credit), or is skipped. Anything that isn't a line,
+   like a fee written in by hand, goes under **Other charges**. Tax becomes its own charge.
+   The bottom of the screen says whether it all adds up to the invoice total.
 
 Starting a bar from scratch? On the check screen, **+ Add N as new products** turns every
 unmatched line into a product (name, bottle size, case size, price) and adds the vendor
@@ -89,12 +102,34 @@ Tips for good photos:
 
 ## If something's off
 
-- **"Invoice scanning isn't set up yet"**: the `ANTHROPIC_API_KEY` secret is missing (step 3).
-- **"Couldn't reach the scanner"**: the function isn't deployed (step 4).
-- **"Scan limits aren't set up yet"**: run `scanning.sql` (step 2).
+- **"Scanning isn't set up yet"**: the `ANTHROPIC_API_KEY` secret is missing (step 3).
+- **"Couldn't reach the scanner"**: that function isn't deployed (step 4).
+- **"Scan limits aren't set up yet"**: run the SQL file it names (step 2).
 - **"This bar has used its ... scans"**: the limit did its job. Type the invoice in, or raise that bar's limit (step 2).
 - **"Claude couldn't read the invoice: ..."**: often out of credit, or the key was deleted. Check Billing in the Anthropic console.
 - **Lines look wrong**: Supabase > Edge Functions > scan-invoice > **Logs** shows each call.
 
-What's not built yet (FIXME): saving the photos with the invoice, and credits/returns as
-negative lines (they're listed but skipped for now).
+## Adding recipe scanning
+
+If invoice scanning already works, it's two steps:
+
+1. SQL Editor > New query > paste all of `supabase/recipe-scanning.sql` > **Run**
+   ("Success. No rows returned").
+2. Terminal, in the `bar-tool` folder:
+   ```
+   npx supabase functions deploy scan-recipes --remote=YOUR-REF --use-api
+   ```
+
+It uses the same `ANTHROPIC_API_KEY`. Then push the app.
+
+**Using it:** **All Recipes** > **📷 Scan recipes** > photograph up to 30 pages > **Read**.
+Pages are read two at a time, and recipes show up as each page finishes. On each recipe,
+check the name, glass, garnish, price, method and amounts. Each ingredient is matched to
+one of yours (no tag), a close match to check (**check**), or a **new** ingredient.
+Recipes you already have start un-ticked. **Save** adds the ticked ones, prep recipes
+(syrups, infusions) first, so the cocktails that use them get their cost.
+
+New ingredients have no cost until they're linked to a product or a prep recipe on the
+Ingredients page. That's the step that turns a recipe book into costed recipes.
+
+What's not built yet (FIXME): saving the photos (the invoice, and pictures of the drinks).

@@ -213,6 +213,7 @@ export function updateInvoice(invoiceId: string, changes: Partial<Invoice>) {
 export function deleteInvoice(invoiceId: string) {
     db.invoices = db.invoices.filter((i) => i.id !== invoiceId);
     db.invoiceLines = db.invoiceLines.filter((l) => l.invoiceId !== invoiceId);
+    db.invoiceCharges = db.invoiceCharges.filter((c) => c.invoiceId !== invoiceId);
     commit();
 }
 
@@ -237,12 +238,50 @@ export function removeInvoiceLine(lineId: string) {
     commit();
 }
 
-export function invoiceTotal(invoiceId: string): number {
+// ===== Charges: money that isn't a product (fees, deposits, subscriptions, credits) =====
+
+export function addInvoiceCharge(invoiceId: string, description = "", amount = 0): string | null {
+    const invoice = findById(db.invoices, invoiceId);
+    if (invoice === null || invoice.status === "approved") return null;
+    const id = makeId();
+    db.invoiceCharges.push({ id, invoiceId, description, amount });
+    commit();
+    return id;
+}
+
+export function updateInvoiceCharge(chargeId: string, changes: { description?: string; amount?: number }) {
+    const charge = findById(db.invoiceCharges, chargeId);
+    const invoice = findById(db.invoices, charge?.invoiceId ?? null);
+    if (charge === null || invoice === null || invoice.status === "approved") return;
+    Object.assign(charge, changes);
+    commit();
+}
+
+export function removeInvoiceCharge(chargeId: string) {
+    db.invoiceCharges = db.invoiceCharges.filter((c) => c.id !== chargeId);
+    commit();
+}
+
+// Products only (what inventory and cost of goods use)
+export function invoiceProductsTotal(invoiceId: string): number {
     let total = 0;
     for (const line of db.invoiceLines) {
         if (line.invoiceId === invoiceId) total += line.quantity * line.unitPrice;
     }
     return total;
+}
+
+export function invoiceChargesTotal(invoiceId: string): number {
+    let total = 0;
+    for (const charge of db.invoiceCharges) {
+        if (charge.invoiceId === invoiceId) total += charge.amount;
+    }
+    return total;
+}
+
+// What the invoice says to pay: products + charges
+export function invoiceTotal(invoiceId: string): number {
+    return invoiceProductsTotal(invoiceId) + invoiceChargesTotal(invoiceId);
 }
 
 // Move an invoice between unreconciled and reconciled (approved is final)

@@ -847,6 +847,32 @@ td.warn, .num.warn { color: var(--danger); font-weight: 600; }
 .scan-thumb figcaption { display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 4px; }
 .scan-head { padding: 18px 22px; display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 16px; }
 .scan-head label { display: grid; gap: 4px; align-content: start; }
+.scan-confirm { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 18px; align-items: start; }
+.scan-confirm-fields { padding: 20px 22px; display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.scan-confirm-fields label { display: grid; gap: 4px; align-content: start; }
+.scan-wide { grid-column: 1 / -1; }
+.scan-total input { font-size: 1.3rem; font-weight: 600; }
+.scan-confirm-pages { display: grid; gap: 10px; }
+.scan-confirm-pages img { width: 100%; border-radius: 10px; border: 1px solid var(--border); display: block; }
+.scan-pages { padding: 14px 18px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.scan-page { display: grid; gap: 2px; padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border); min-width: 120px; max-width: 260px; }
+.scan-page.reading { border-color: var(--accent); }
+.scan-page.done { background: var(--accent-soft); }
+.scan-page.failed { border-color: #c0392b; color: #c0392b; }
+.recipe-scan { padding: 16px 20px; display: grid; gap: 12px; }
+.recipe-scan.left-out { opacity: 0.55; }
+.recipe-scan-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.recipe-scan-include input { width: 20px; height: 20px; }
+.recipe-scan-name { flex: 1; min-width: 180px; font-size: 1.1rem; font-weight: 600; }
+.recipe-scan-head select { width: auto; flex: 0 0 auto; }
+.recipe-scan-dup { margin: 0; }
+.recipe-scan-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.recipe-scan-fields label, .recipe-scan-method { display: grid; gap: 4px; align-content: start; }
+.recipe-scan-yield { display: flex; gap: 6px; }
+.recipe-scan-lines td { padding-top: 6px; padding-bottom: 6px; vertical-align: top; }
+.recipe-scan-lines td:first-child { width: 90px; }
+.recipe-scan-lines td:nth-child(2) { width: 110px; }
+.charges-hint { margin: 0; padding-top: 0; }
 .scan-fill { padding: 16px 22px; display: flex; gap: 16px; align-items: center; justify-content: space-between; background: var(--accent-soft); }
 .scan-fill button { flex-shrink: 0; }
 .scan-warnings { margin: 8px 0 0; padding-left: 20px; }
@@ -858,6 +884,8 @@ td.warn, .num.warn { color: var(--danger); font-weight: 600; }
     .scan-head { grid-template-columns: 1fr 1fr; }
     .scan-head label:first-child { grid-column: 1 / -1; }
     .scan-fill { flex-direction: column; align-items: stretch; }
+    .scan-confirm { grid-template-columns: 1fr; }
+    .scan-confirm-pages { grid-template-columns: 1fr 1fr; }
     /* Each line becomes a small card: name, then qty / price / total, then the product */
     .scan-table thead { display: none; }
     .scan-table, .scan-table tbody { display: block; }
@@ -868,4 +896,11 @@ td.warn, .num.warn { color: var(--danger); font-weight: 600; }
     .scan-table .qty-input { width: 100%; }
     .scan-table select { max-width: none; width: 100%; }
     .scan-table .scan-pick { flex-wrap: nowrap; }
+    /* Recipe ingredient lines: amount and unit on one row, the ingredient under them */
+    .recipe-scan-lines, .recipe-scan-lines tbody { display: block; }
+    .recipe-scan-lines tr { display: grid; grid-template-columns: 90px 1fr; gap: 6px; padding: 8px 0; border-bottom: 1px solid var(--border); }
+    .recipe-scan-lines td { display: block; padding: 0; border: none; width: auto !important; }
+    .recipe-scan-lines td:last-child { grid-column: 1 / -1; }
+    .recipe-scan-lines td:last-child select { width: 100%; }
+    .recipe-scan-lines .scan-pick { flex-wrap: nowrap; }
 }
