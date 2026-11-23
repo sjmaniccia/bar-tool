@@ -17,7 +17,8 @@ on:
 
 jobs:
     testflight:
-        runs-on: macos-15
+        # Apple wants the newest SDK (iOS 27 from April 2027): GitHub's Xcode 27 machine
+        runs-on: xcode-27
         timeout-minutes: 45
         steps:
             - uses: actions/checkout@v7
