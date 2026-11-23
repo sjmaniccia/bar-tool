@@ -12,6 +12,10 @@
 //                  fees and credits -> charges
 //                  printed as 0 but charged, with no product match -> a charge (a service)
 //                  nothing shipped and nothing charged -> skipped
+//     SUPPLY   lines that aren't food or drink (paper, cleaning, mop heads, bar towels) are
+//              marked as supplies: real products that get counted and ordered, but never
+//              offered as ingredients and kept out of pour cost. Claude marks them, and
+//              a word list catches the ones it misses. The manager can flip any line.
 //     TOTALS   products + charges + tax should equal the invoice total the manager confirmed
 //     CREATE   a draft invoice with the lines and charges, and remember every match, so the
 //              next invoice from this vendor matches itself. Approving it (on the invoice
@@ -22,7 +26,8 @@
 
 import { db, commit } from "./storage";
 import { findById, makeId } from "./utils";
-import { buyName, createVendor, FAMILIES } from "./library";
+import { buyName, createVendor, FAMILIES, guessSupplyFamily, isSupply, setSupply, soundsLikeSupply } from "./library";
+import { formatName } from "./costing";
 import { importProductRows, type ProductRow } from "./backup";
 import type { PurchaseUnit } from "./types";
 import type { ScannedInvoice, ScannedLine } from "../../supabase/functions/_shared/invoice-scan";
@@ -38,6 +43,7 @@ export interface DraftLine {
     purchaseUnitId: string | null;
     how: MatchHow;
     use: LineUse;
+    supply: boolean;     // not an ingredient (paper, cleaning...): counted, never in recipes
     quantity: number;
     unitPrice: number;
 }
@@ -136,6 +142,20 @@ export function fitScore(line: ScannedLine, unit: PurchaseUnit): number {
     return score;
 }
 
+// Is this purchase unit's product a supply?
+export function unitIsSupply(unitId: string | null): boolean {
+    const unit = findById(db.purchaseUnits, unitId);
+    const format = findById(db.formats, unit?.formatId ?? null);
+    return isSupply(findById(db.products, format?.productId ?? null));
+}
+
+// Does this line look like a supply before any match? Claude's mark, or the word list
+export function looksLikeSupply(line: ScannedLine): boolean {
+    return line.kind === "supply" || (line.kind === "item" && soundsLikeSupply(line.description));
+}
+
+// Remembered links and item codes are trusted as they are; name SUGGESTIONS only come
+// from the same side (a bar towel is never suggested as a towel-named liqueur)
 export function matchLine(line: ScannedLine, vendorId: string | null): { purchaseUnitId: string | null; how: MatchHow; asCharge?: boolean } {
     const key = lineKey(line);
     if (vendorId) {
@@ -150,7 +170,9 @@ export function matchLine(line: ScannedLine, vendorId: string | null): { purchas
         if (pick) return { purchaseUnitId: pick.id, how: "code" };
     }
     // This vendor's products first; any vendor's if none fit
-    const pools = [db.purchaseUnits.filter((u) => vendorId && u.vendorId === vendorId), db.purchaseUnits];
+    const supply = looksLikeSupply(line);
+    const sameSide = db.purchaseUnits.filter((u) => unitIsSupply(u.id) === supply);
+    const pools = [sameSide.filter((u) => vendorId && u.vendorId === vendorId), sameSide];
     for (const pool of pools) {
         let best: { id: string; score: number } | null = null;
         for (const unit of pool) {
@@ -163,15 +185,20 @@ export function matchLine(line: ScannedLine, vendorId: string | null): { purchas
 }
 
 // How one line starts out: as a product (matched or not), a charge, or skipped
-function startLine(line: ScannedLine, vendorId: string | null): Pick<DraftLine, "purchaseUnitId" | "how" | "use"> {
+//     supply: from the matched product IF there is one, else from how the line looks
+function startLine(line: ScannedLine, vendorId: string | null): Pick<DraftLine, "purchaseUnitId" | "how" | "use" | "supply"> {
+    const supply = looksLikeSupply(line);
     // Nothing shipped and nothing charged (out of stock): nothing to enter
-    if (line.quantity === 0 && !line.lineTotal) return { purchaseUnitId: null, how: "none", use: "skip" };
-    if (line.kind !== "item") return { purchaseUnitId: null, how: "none", use: "charge" };
+    if (line.quantity === 0 && !line.lineTotal) return { purchaseUnitId: null, how: "none", use: "skip", supply };
+    if (line.kind === "fee" || line.kind === "credit") return { purchaseUnitId: null, how: "none", use: "charge", supply: false };
     const match = matchLine(line, vendorId);
-    if (match.asCharge) return { purchaseUnitId: null, how: "remembered", use: "charge" };
+    if (match.asCharge) return { purchaseUnitId: null, how: "remembered", use: "charge", supply: false };
     // Printed as 0 but charged, and not a product we know: most likely a service
-    if (match.purchaseUnitId === null && line.zeroQuantity) return { purchaseUnitId: null, how: "none", use: "charge" };
-    return { purchaseUnitId: match.purchaseUnitId, how: match.how, use: "product" };
+    if (match.purchaseUnitId === null && line.zeroQuantity) return { purchaseUnitId: null, how: "none", use: "charge", supply: false };
+    return {
+        purchaseUnitId: match.purchaseUnitId, how: match.how, use: "product",
+        supply: match.purchaseUnitId ? unitIsSupply(match.purchaseUnitId) : supply
+    };
 }
 
 // Everything matched as well as it can be, ready for the manager to check
@@ -211,11 +238,14 @@ export function lineAmount(line: DraftLine): number {
 }
 
 // The money check: what's going on the invoice vs. what the invoice says to pay
+//     products = everything stocked; supplies = the part of that which isn't ingredients
 export function draftTotals(draft: Draft) {
     let products = 0;
+    let supplies = 0;
     let charges = 0;
     for (const line of draft.lines) {
         if (line.use === "product" && line.purchaseUnitId) products += lineAmount(line);
+        if (line.use === "product" && line.purchaseUnitId && line.supply) supplies += lineAmount(line);
         if (line.use === "charge") charges += lineAmount(line);
     }
     for (const extra of draft.extraCharges) charges += extra.amount;
@@ -223,7 +253,7 @@ export function draftTotals(draft: Draft) {
     const entered = Math.round((products + charges + tax) * 100) / 100;
     const target = draft.total ?? (draft.subtotal !== null ? draft.subtotal + tax : null);
     return {
-        products, charges, tax, entered, target,
+        products, supplies, ingredients: Math.round((products - supplies) * 100) / 100, charges, tax, entered, target,
         off: target === null ? null : Math.round((entered - target) * 100) / 100
     };
 }
@@ -278,12 +308,13 @@ export function productName(line: ScannedLine): string {
 
 // Make a product, size and way-to-buy from a line, through the same code as the
 // spreadsheet import (so it's tested), and return the new purchase unit's id
-export function createProductFromLine(line: ScannedLine, vendorId: string): string | null {
+//     a supply gets a supply family, so it never becomes an ingredient
+export function createProductFromLine(line: ScannedLine, vendorId: string, supply = false): string | null {
     const vendor = findById(db.vendors, vendorId);
     if (!vendor) return null;
     const pack = packFromText(line.description + " " + line.packSize);
     const row: ProductRow = {
-        line: 0, name: productName(line), family: guessFamily(line.description), category: "",
+        line: 0, name: productName(line), family: supply ? guessSupplyFamily(line.description) : guessFamily(line.description), category: "",
         size: pack.size, unit: pack.unit, packaging: pack.packaging, vendor: vendor.companyName,
         buyAs: pack.unitsPer > 1 ? "case" : pack.packaging === "keg" ? "keg" : "single",
         unitsPer: pack.unitsPer, price: line.unitPrice, par: null, barcode: "", status: "new", problem: ""
@@ -338,7 +369,7 @@ export function addUnmatchedAsProducts(draft: Draft): { draft: Draft; added: num
     let added = 0;
     const lines = draft.lines.map((line, i) => {
         if (!unmatchedLines(draft).includes(i)) return line;
-        const unitId = createProductFromLine({ ...line.scanned, unitPrice: line.unitPrice }, vendorId);
+        const unitId = createProductFromLine({ ...line.scanned, unitPrice: line.unitPrice }, vendorId, line.supply);
         if (!unitId) return line;
         added++;
         return { ...line, purchaseUnitId: unitId, how: "picked" as MatchHow };
@@ -378,7 +409,7 @@ export function createInvoiceFromDraft(draft: Draft): string {
 
     // Remember: products by purchase unit, and item lines that are really charges
     for (const line of draft.lines) {
-        if (line.scanned.kind !== "item") continue;
+        if (line.scanned.kind !== "item" && line.scanned.kind !== "supply") continue;
         const asCharge = line.use === "charge";
         if (!asCharge && !(line.use === "product" && line.purchaseUnitId)) continue;
         const key = lineKey(line.scanned);
@@ -391,9 +422,23 @@ export function createInvoiceFromDraft(draft: Draft): string {
     return invoiceId;
 }
 
+// The manager flips a line between ingredient and supply
+//     IF it's matched to a product -> the product changes too (it's the same thing next time)
+export function setLineSupply(draft: Draft, index: number, supply: boolean): Draft {
+    const line = draft.lines[index];
+    if (line.purchaseUnitId) {
+        const unit = findById(db.purchaseUnits, line.purchaseUnitId);
+        const format = findById(db.formats, unit?.formatId ?? null);
+        if (format) setSupply(format.productId, supply);
+    }
+    // Lines matched to the same product follow it
+    const lines = draft.lines.map((l, i) => (i === index || (line.purchaseUnitId && l.purchaseUnitId === line.purchaseUnitId) ? { ...l, supply } : l));
+    return { ...draft, lines };
+}
+
 // "Island White Rum · 1000 ml bottle · case of 12", for the product picker
 export function unitLabel(unit: PurchaseUnit): string {
     const format = findById(db.formats, unit.formatId);
     const product = findById(db.products, format?.productId ?? null);
-    return (product?.name ?? "?") + " · " + (format ? format.unitSize + " " + format.sizeUnit + " " + format.packaging : "") + " · " + buyName(unit);
+    return (product?.name ?? "?") + " · " + (format ? formatName(format) : "") + " · " + buyName(unit);
 }

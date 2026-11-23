@@ -9,7 +9,7 @@ import { Link, useNavigate, useParams } from "react-router";
 import { db as database, useDb } from "../data/storage";
 import { getOrCreateIngredient } from "../data/actions";
 import {
-    FAMILIES, addFormat, addPurchaseUnit, buyName, deleteFormat, deleteProduct, deletePurchaseUnit,
+    FAMILIES, isSupply, isSupplyFamily, setSupply, addFormat, addPurchaseUnit, buyName, deleteFormat, deleteProduct, deletePurchaseUnit,
     deletePrice, priceHistory, recordPrice, updateFormat, updateIngredient, updateProduct, updatePurchaseUnit
 } from "../data/library";
 import { onHand, unitCost, unitWord } from "../data/inventory";
@@ -97,7 +97,12 @@ function DetailsCard({ product, ingredientName, onIngredient }: { product: Produ
                 </label>
                 <label className="form-field">
                     <span>Family</span>
-                    <select value={product.family} onChange={(e) => update({ family: e.target.value })}>
+                    <select value={product.family} onChange={(e) => {
+                        // Moving into or out of the supplies changes whether it can be an ingredient
+                        const toSupply = isSupplyFamily(e.target.value);
+                        if (toSupply !== isSupply(product)) setSupply(product.id, toSupply);
+                        update({ family: e.target.value });
+                    }}>
                         {FAMILIES.map((f) => <option key={f}>{f}</option>)}
                     </select>
                 </label>
@@ -117,10 +122,17 @@ function DetailsCard({ product, ingredientName, onIngredient }: { product: Produ
                     <span>ABV %</span>
                     <AmountInput value={product.abv} allowBlank placeholder="40" onSave={(abv) => update({ abv })} />
                 </label>
-                <label className="form-field">
-                    <span>Counts as ingredient</span>
-                    <TextInput value={ingredientName} list="ingredient-names" placeholder="e.g. White rum" onSave={onIngredient} />
-                </label>
+                {isSupply(product) ? (
+                    <div className="form-field">
+                        <span>Counts as ingredient</span>
+                        <span className="muted small">A supply: it's counted and ordered, but never used in recipes or pour cost.</span>
+                    </div>
+                ) : (
+                    <label className="form-field">
+                        <span>Counts as ingredient</span>
+                        <TextInput value={ingredientName} list="ingredient-names" placeholder="e.g. White rum" onSave={onIngredient} />
+                    </label>
+                )}
             </div>
             <datalist id="ingredient-names">
                 {database.ingredients.map((i) => <option key={i.id} value={i.name} />)}

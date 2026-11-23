@@ -11,7 +11,7 @@
 //     IF the lines don't add up to the invoice's subtotal  -> a warning on the invoice
 // Warnings don't block anything: they tell the manager where to look before approving.
 
-export type LineKind = "item" | "fee" | "credit";
+export type LineKind = "item" | "supply" | "fee" | "credit";    // supply = bought, but never eaten or drunk
 
 export interface ScannedLine {
     description: string;
@@ -59,7 +59,7 @@ export const INVOICE_TOOL = {
                         pack_size: { type: "string", description: "Pack size as printed, e.g. 12/750ML or 6/1L" },
                         unit_price: { type: "number", description: "Price for ONE unit, before tax" },
                         line_total: { type: "number", description: "Extended price for the line" },
-                        kind: { type: "string", enum: ["item", "fee", "credit"], description: "fee = deposits, delivery, fuel or other charges; credit = returns" }
+                        kind: { type: "string", enum: ["item", "supply", "fee", "credit"], description: "item = food or drink (anything that could go into a recipe or be sold); supply = goods that are not food or drink: paper goods, napkins, straws, to-go containers, cleaning chemicals, mop heads, bar towels, linens, toilet paper, gloves, trash bags, glassware, smallwares, uniforms; fee = deposits, delivery, fuel or other charges; credit = returns" }
                     },
                     required: ["description", "quantity", "kind"]
                 }
@@ -79,6 +79,7 @@ export const INSTRUCTIONS = [
     "quantity is the number of units shipped. unit is what one unit is (often a case). unit_price is for one unit.",
     "Many distributor invoices have separate columns for cases and bottles (or units). Put full cases in quantity and loose bottles in bottles.",
     "A line showing 0 cases with bottles shipped, or 0 quantity but a charge, is a real charge: include it with the numbers as printed.",
+    "Mark food and drink as item. Mark anything that is not food or drink (paper goods, cleaning supplies, mop heads, bar towels, toilet paper, glassware, smallwares) as supply.",
     "If a line was crossed out or marked as not delivered (out of stock), leave it out.",
     "If a number is unreadable, leave that field out rather than guessing."
 ].join(" ");
@@ -159,7 +160,7 @@ export function cleanScan(raw: unknown): { invoice: ScannedInvoice; warnings: st
             warning = quantity + " × " + money(unitPrice) + " doesn't equal " + money(lineTotal) + ". Check the quantity and price.";
         }
         const kindText = text(l.kind);
-        const kind: LineKind = kindText === "fee" || kindText === "credit" ? kindText : quantity < 0 ? "credit" : "item";
+        const kind: LineKind = kindText === "fee" || kindText === "credit" || kindText === "supply" ? kindText : quantity < 0 ? "credit" : "item";
         if (kind === "credit" && quantity > 0) quantity = -quantity;
         lines.push({
             description, sku: text(l.sku), quantity, ...(bottles !== 0 ? { bottles } : {}), unit: charged.unit, packSize: text(l.pack_size),

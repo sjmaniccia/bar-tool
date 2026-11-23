@@ -85,6 +85,11 @@ When GitHub Actions finishes: **Invoices** > **📷 Scan invoice** > take a phot
    delivery, deposits, a subscription, a credit), or is skipped. Anything that isn't a line,
    like a fee written in by hand, goes under **Other charges**. Tax becomes its own charge.
    The bottom of the screen says whether it all adds up to the invoice total.
+3. **Supplies.** Things that never go in a recipe (paper goods, bar towels, mop heads,
+   toilet paper, cleaning chemicals, glassware) are tagged **Supply · not for recipes**.
+   They're still products: counted and ordered like anything else, but they're never offered
+   as ingredients and stay out of pour cost and variance. Tap the tag to flip a line either
+   way; if the line is matched to a product, the product changes too (it asks first).
 
 Starting a bar from scratch? On the check screen, **+ Add N as new products** turns every
 unmatched line into a product (name, bottle size, case size, price) and adds the vendor

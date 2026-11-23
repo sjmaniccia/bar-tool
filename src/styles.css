@@ -1072,3 +1072,31 @@ td.warn, .num.warn { color: var(--danger); font-weight: 600; }
     .recipe-photo img, .recipe-photo.empty { width: 84px; height: 84px; }
 }
 .recipe-thumb { width: 36px; height: 36px; object-fit: cover; border-radius: 8px; vertical-align: middle; margin-right: 10px; float: left; }
+
+/* Ingredient / supply toggle on scanned invoice lines
+       ingredient: quiet dashed pill. supply: a warm, solid pill so it stands out */
+.supply-toggle {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    border: 1px dashed var(--border);
+    white-space: nowrap;
+}
+.supply-toggle:hover, .supply-toggle:focus-visible {
+    background: var(--hover);
+    color: var(--text);
+    border-color: var(--input-border);
+}
+.supply-toggle.on, .supply-toggle.on:hover {
+    color: #8a5a12;
+    background: #fbf0dc;
+    border: 1px solid #ecd2a2;
+}
+.tag.supply-tag { color: #8a5a12; background: #fbf0dc; margin-left: 6px; }
+@media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .supply-toggle.on, :root:not([data-theme="light"]) .tag.supply-tag { color: #f0c47a; background: #3a2d18; border-color: #5a4626; }
+}
+:root[data-theme="dark"] .supply-toggle.on, :root[data-theme="dark"] .tag.supply-tag { color: #f0c47a; background: #3a2d18; border-color: #5a4626; }

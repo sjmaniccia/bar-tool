@@ -134,6 +134,9 @@ function ReportBody({ report }: { report: Report }) {
                     </tbody>
                 </table>
                 <p className="muted small">Delivered uses invoice prices; stock and usage use current costs, so the two halves can differ slightly.</p>
+                {report.suppliesValue > 0 && (
+                    <p className="muted small">Supplies (paper, cleaning, smallwares) bought in this period: {formatMoney(report.suppliesValue)}. They're left out of pour cost and variance.</p>
+                )}
             </section>
 
             <section className="card table-card">

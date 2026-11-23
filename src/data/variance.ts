@@ -11,6 +11,7 @@
 // Which records count for the period (opening date < date <= closing date):
 //     invoices by invoice date, waste by its date, sales reports by their LAST day.
 
+import { isSupply } from "./library";
 import { db, commit } from "./storage";
 import { countTotals, unitCost } from "./inventory";
 import { addRecipeUsage, batchesFor, emptyUsage, type UsageResult } from "./usage";
@@ -146,6 +147,7 @@ export interface VarianceReport {
     openingValue: number;
     closingValue: number;
     purchasesValue: number;
+    suppliesValue: number;      // supplies bought in the period (paper, cleaning...): not in pour cost
     usedValue: number;          // cost of goods actually used
     theoreticalValue: number;   // what the sales should have used
     wasteValue: number;
@@ -164,6 +166,12 @@ function inPeriod(date: string, opening: StockCount, closing: StockCount): boole
     return day > opening.countedAt && day <= closing.countedAt;
 }
 
+// Is this format a supply (paper, cleaning...)? Those stay out of the report's rows and pour cost
+function supplyFormat(formatId: string): boolean {
+    const format = findById(db.formats, formatId);
+    return isSupply(findById(db.products, format?.productId ?? null));
+}
+
 // Build the report between two finished counts
 export function varianceReport(openingId: string, closingId: string): VarianceReport | null {
     const opening = findById(db.stockCounts, openingId);
@@ -174,12 +182,18 @@ export function varianceReport(openingId: string, closingId: string): VarianceRe
     const close = countTotals(closing.id);
 
     // Purchases: invoice lines dated in the period, converted to units
+    //     supplies (paper, cleaning...) are added up on their own: they aren't cost of goods
     const purchased = new Map<string, number>();
     let purchasesValue = 0;
+    let suppliesValue = 0;
     for (const line of db.invoiceLines) {
         const invoice = findById(db.invoices, line.invoiceId);
         const unit = findById(db.purchaseUnits, line.purchaseUnitId);
         if (invoice === null || unit === null || !inPeriod(invoice.invoiceDate, opening, closing)) continue;
+        if (supplyFormat(unit.formatId)) {
+            suppliesValue += line.quantity * line.unitPrice;
+            continue;
+        }
         purchased.set(unit.formatId, (purchased.get(unit.formatId) ?? 0) + line.quantity * unit.unitAmount);
         purchasesValue += line.quantity * line.unitPrice;
     }
@@ -214,7 +228,7 @@ export function varianceReport(openingId: string, closingId: string): VarianceRe
     const formatIds = new Set([...open.units.keys(), ...close.units.keys(), ...purchased.keys(), ...theoretical.units.keys(), ...waste.units.keys()]);
     const rows: VarianceRow[] = [];
     for (const formatId of formatIds) {
-        if (findById(db.formats, formatId) === null) continue;
+        if (findById(db.formats, formatId) === null || supplyFormat(formatId)) continue;
         const o = open.units.get(formatId) ?? 0;
         const p = purchased.get(formatId) ?? 0;
         const c = close.units.get(formatId) ?? 0;
@@ -238,6 +252,7 @@ export function varianceReport(openingId: string, closingId: string): VarianceRe
         openingValue: open.value,
         closingValue: close.value,
         purchasesValue,
+        suppliesValue,
         usedValue,
         theoreticalValue,
         wasteValue,

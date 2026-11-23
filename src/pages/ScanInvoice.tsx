@@ -22,7 +22,7 @@ import { useSession } from "../cloud/session";
 import { limitReached, MAX_PAGES, scanInvoice, scanUsage, shrinkPhoto, type ScanUsage } from "../cloud/scan";
 import {
     addUnmatchedAsProducts, buildDraft, createInvoiceFromDraft, createProductFromLine, draftTotals, ensureVendor,
-    lineAmount, rematch, unitLabel, unmatchedLines, vendorDisplayName,
+    lineAmount, rematch, setLineSupply, unitIsSupply, unitLabel, unmatchedLines, vendorDisplayName,
     type Draft, type DraftLine, type MatchHow
 } from "../data/invoiceScan";
 import { formatMoney, makeId } from "../data/utils";
@@ -238,7 +238,7 @@ export default function ScanInvoice() {
         if (value === NEW_PRODUCT) {
             // A new product needs a vendor to buy it from: add the vendor now if it's new
             const vendorId = ensureVendor(d);
-            const unitId = createProductFromLine({ ...d.lines[index].scanned, unitPrice: d.lines[index].unitPrice }, vendorId);
+            const unitId = createProductFromLine({ ...d.lines[index].scanned, unitPrice: d.lines[index].unitPrice }, vendorId, d.lines[index].supply);
             setDraft({
                 ...d, vendorId,
                 lines: d.lines.map((l, i) => (i === index ? { ...l, use: "product", purchaseUnitId: unitId, how: "picked" } : l))
@@ -246,7 +246,23 @@ export default function ScanInvoice() {
             if (!unitId) setError("Couldn't add that product. Add it on the Products page, then pick it here.");
             return;
         }
-        setLine(index, { use: "product", purchaseUnitId: value || null, how: value ? "picked" : "none" });
+        // A picked product brings its own kind (a supply stays a supply)
+        setLine(index, { use: "product", purchaseUnitId: value || null, how: value ? "picked" : "none", ...(value ? { supply: unitIsSupply(value) } : {}) });
+    }
+
+    // Ingredient <-> supply
+    //     IF the line is matched to a product, that product changes too: ask first
+    function flipSupply(index: number) {
+        const line = d.lines[index];
+        const next = !line.supply;
+        if (line.purchaseUnitId) {
+            const name = unitLabel(db.purchaseUnits.find((u) => u.id === line.purchaseUnitId)!).split(" · ")[0];
+            const ask = next
+                ? "Make " + name + " a supply? It stays counted and ordered, but leaves recipes and pour cost."
+                : "Make " + name + " an ingredient again? It can then go in recipes.";
+            if (!confirm(ask)) return;
+        }
+        setDraft(setLineSupply(d, index, next));
     }
 
     function addAll() {
@@ -269,6 +285,8 @@ export default function ScanInvoice() {
     }
 
     const selectValue = (line: DraftLine) => (line.use === "skip" ? SKIP : line.use === "charge" ? CHARGE : line.purchaseUnitId ?? "");
+    const unmatchedSupplies = unmatched.filter((i) => d.lines[i].supply).length;
+    const unmatchedIngredients = unmatched.length - unmatchedSupplies;
     const balanced = totals.off !== null && Math.abs(totals.off) <= 0.05;
 
     return (
@@ -294,10 +312,15 @@ export default function ScanInvoice() {
             {unmatched.length > 0 && (
                 <section className="card scan-fill">
                     <div>
-                        <strong>{unmatched.length} {unmatched.length === 1 ? "item isn't" : "items aren't"} in Agave yet.</strong>
+                        <strong>
+                            {unmatched.length} {unmatched.length === 1 ? "item isn't" : "items aren't"} in Agave yet
+                            {unmatchedSupplies > 0 && unmatchedIngredients > 0 && " (" + unmatchedIngredients + " ingredient" + (unmatchedIngredients === 1 ? "" : "s") + ", " + unmatchedSupplies + " suppl" + (unmatchedSupplies === 1 ? "y" : "ies") + ")"}
+                            {unmatchedSupplies > 0 && unmatchedIngredients === 0 && (unmatchedSupplies === 1 ? " (a supply)" : " (all supplies)")}.
+                        </strong>
                         <span className="muted small">
                             {" "}Add {unmatched.length === 1 ? "it" : "them"} as new products: name, bottle size, case size and this price
                             {d.vendorId ? "" : ", plus " + vendorDisplayName(d.vendorName) + " as a vendor"}.
+                            Supplies (paper, cleaning, towels) get counted and ordered but never show up in recipes.
                             If one is really a fee or a service, make it a charge instead.
                         </span>
                     </div>
@@ -315,14 +338,14 @@ export default function ScanInvoice() {
                             const s = line.scanned;
                             const tag = line.use === "product" ? HOW_TAG[line.purchaseUnitId ? line.how : "none"] : null;
                             return (
-                                <tr key={i} className={line.use === "skip" ? "scan-skipped" : ""}>
+                                <tr key={i} className={(line.use === "skip" ? "scan-skipped" : "") + (line.use === "product" && line.supply ? " scan-supply" : "")}>
                                     <td>
                                         <div>{s.description}</div>
                                         <div className="muted small">
                                             {[
                                                 s.sku && "#" + s.sku, s.packSize, s.unit,
                                                 s.bottles && "split case: " + s.bottles + (s.bottles === 1 ? " bottle" : " bottles"),
-                                                s.kind !== "item" && s.kind,
+                                                (s.kind === "fee" || s.kind === "credit") && s.kind,
                                                 s.quantity === 0 && !s.lineTotal && "not shipped"
                                             ].filter(Boolean).join(" · ")}
                                         </div>
@@ -341,7 +364,7 @@ export default function ScanInvoice() {
                                         <div className="scan-pick">
                                             <select aria-label={"What " + s.description + " is"} value={selectValue(line)} onChange={(e) => pick(i, e.target.value)}>
                                                 <option value="">Pick a product…</option>
-                                                <option value={NEW_PRODUCT}>+ Add as a new product</option>
+                                                <option value={NEW_PRODUCT}>{line.supply ? "+ Add as a new supply" : "+ Add as a new product"}</option>
                                                 <option value={CHARGE}>A charge (not a product)</option>
                                                 <option value={SKIP}>Skip this line</option>
                                                 {vendorOptions.length > 0 && (
@@ -354,6 +377,13 @@ export default function ScanInvoice() {
                                                 </optgroup>
                                             </select>
                                             {tag && <span className={tag.className} title={tag.title}>{tag.text}</span>}
+                                            {line.use === "product" && (
+                                                <button type="button" className={"supply-toggle" + (line.supply ? " on" : "")} onClick={() => flipSupply(i)}
+                                                    aria-pressed={line.supply}
+                                                    title={line.supply ? "A supply: counted and ordered, never in recipes or pour cost. Tap to make it an ingredient." : "An ingredient: can go in recipes. Tap if it's a supply (paper, cleaning, towels)."}>
+                                                    {line.supply ? "Supply · not for recipes" : "Ingredient"}
+                                                </button>
+                                            )}
                                             {line.use === "charge" && <span className="tag house" title="Goes on the invoice as money, not as a product">{line.how === "remembered" ? "charge, remembered" : "charge"}</span>}
                                             {line.use === "skip" && <span className="muted small">skipped</span>}
                                             {line.use !== "skip" && line.quantity === 0 && line.unitPrice > 0 && <span className="tag warn-tag">qty is 0</span>}
@@ -399,7 +429,10 @@ export default function ScanInvoice() {
                     <span className="stat-label">Going on the invoice</span>
                     <span className="stat-value">{formatMoney(totals.entered)}</span>
                     <span className="stat-ratio">
-                        {formatMoney(totals.products)} products + {formatMoney(totals.charges)} charges{totals.tax ? " + " + formatMoney(totals.tax) + " tax" : ""}
+                        {totals.supplies > 0
+                            ? formatMoney(totals.ingredients) + " ingredients + " + formatMoney(totals.supplies) + " supplies"
+                            : formatMoney(totals.products) + " products"}
+                        {" + "}{formatMoney(totals.charges)} charges{totals.tax ? " + " + formatMoney(totals.tax) + " tax" : ""}
                     </span>
                 </div>
                 <div className={"stat" + (totals.off !== null && !balanced ? " warn" : "")}>

@@ -76,4 +76,8 @@ describe("invoice scan clean-up", () => {
         expect(invoice.lines[1]).toMatchObject({ quantity: 1, unitPrice: 4, lineTotal: 4 });
         expect(warnings).toEqual([]);
     });
+    test("keeps lines Claude marks as supplies", () => {
+        const { invoice } = cleanScan({ vendor_name: "X", lines: [{ description: "BAR TOWELS 25 PK", quantity: 2, unit_price: 18, line_total: 36, kind: "supply" }] });
+        expect(invoice.lines[0]).toMatchObject({ kind: "supply", quantity: 2 });
+    });
 });

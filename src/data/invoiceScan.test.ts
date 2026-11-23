@@ -8,8 +8,9 @@ import { invoiceTotal } from "./purchasing";
 import { sampleData } from "./sampleData";
 import {
     addUnmatchedAsProducts, buildDraft, createInvoiceFromDraft, draftTotals, createProductFromLine, guessFamily, matchLine,
-    matchVendor, packFromText, productName, vendorDisplayName, words, type ScannedInvoice, type ScannedLine
+    matchVendor, packFromText, productName, setLineSupply, unitIsSupply, vendorDisplayName, words, type ScannedInvoice, type ScannedLine
 } from "./invoiceScan";
+import { soundsLikeSupply } from "./library";
 
 beforeEach(() => {
     Object.assign(db, sampleData());
@@ -216,5 +217,69 @@ describe("charges", () => {
         // Next month the subscription line is a charge without asking
         const next = buildDraft({ ...scan, invoiceNumber: "C-2" });
         expect(next.lines[1]).toMatchObject({ use: "charge", how: "remembered" });
+    });
+});
+
+function invoice(lines: ScannedLine[]): ScannedInvoice {
+    return { vendorName: "Southern Glazer's", invoiceNumber: "S-1", invoiceDate: "2026-11-20", lines, subtotal: null, tax: null, total: null };
+}
+
+describe("supplies", () => {
+    test("the word list catches paper and cleaning, not drinks or food", () => {
+        for (const name of ["BAR TOWELS 25 PK", "MOP HEAD 24OZ", "TOILET PAPER 96 ROLL", "BLACK STRAWS 8IN", "NITRILE GLOVES L", "CAN LINER 40X46"]) {
+            expect(soundsLikeSupply(name), name).toBe(true);
+        }
+        for (const name of ["JOHNNIE WALKER BLACK LABEL 1L", "STRAWBERRY PUREE", "LIMES 200CT", "TITOS VODKA 1L", "FLOUR TORTILLAS 12IN", "PAPER PLANE GIN"]) {
+            expect(soundsLikeSupply(name), name).toBe(false);
+        }
+    });
+
+    test("Claude's mark or the word list makes an unmatched line a supply", () => {
+        const draft = buildDraft(invoice([
+            line("BAR TOWELS 25 PK", { unitPrice: 18, lineTotal: 18 }),
+            line("WIDGET THING", { kind: "supply", unitPrice: 5, lineTotal: 5 }),
+            line("ISLAND WHITE RUM 12/1L", { packSize: "12/1L" })
+        ]));
+        expect(draft.lines.map((l) => l.supply)).toEqual([true, true, false]);
+    });
+
+    test("a supply is never suggested as an ingredient's product", () => {
+        // "TOWEL" shares no words with the bar's products, and a supply line must not land on a spirit
+        const match = matchLine(line("RUM RAG TOWELS", { kind: "supply" }), "v-sg");
+        const unit = db.purchaseUnits.find((u) => u.id === match.purchaseUnitId);
+        expect(unit ? unitIsSupply(unit.id) : true).toBe(true);
+    });
+
+    test("a new supply gets a supply family and no ingredient", () => {
+        const before = db.ingredients.length;
+        const unitId = createProductFromLine(line("MOP HEAD 24OZ", { unitPrice: 9 }), "v-sg", true);
+        expect(unitId).not.toBeNull();
+        const product = db.products.find((p) => p.name === "Mop Head 24oz")!;
+        expect(product.family).toBe("Cleaning & chemicals");
+        expect(product.ingredientId).toBeNull();
+        expect(db.ingredients.length).toBe(before);
+    });
+
+    test("totals split ingredients and supplies", () => {
+        const draft = addUnmatchedAsProducts(buildDraft(invoice([
+            line("BAR TOWELS 25 PK", { unitPrice: 18, lineTotal: 18 }),
+            line("ISLAND WHITE RUM 12/1L", { packSize: "12/1L", unitPrice: 200, lineTotal: 200 })
+        ]))).draft;
+        const totals = draftTotals(draft);
+        expect(totals.supplies).toBe(18);
+        expect(totals.ingredients).toBe(200);
+    });
+
+    test("flipping a matched line changes the product, both ways", () => {
+        const draft = buildDraft(invoice([line("ISLAND WHITE RUM 12/1L", { packSize: "12/1L" })]));
+        const unitId = draft.lines[0].purchaseUnitId!;
+        expect(unitId).toBeTruthy();
+        const flipped = setLineSupply(draft, 0, true);
+        expect(flipped.lines[0].supply).toBe(true);
+        expect(unitIsSupply(unitId)).toBe(true);
+        setLineSupply(flipped, 0, false);
+        expect(unitIsSupply(unitId)).toBe(false);
+        const product = db.products.find((p) => db.formats.some((f) => f.productId === p.id && db.purchaseUnits.some((u) => u.id === unitId && u.formatId === f.id)))!;
+        expect(product.ingredientId).not.toBeNull();
     });
 });

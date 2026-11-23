@@ -91,7 +91,9 @@ export function sourceKey(source: Source): string {
 
 // "1.75 L bottle"
 export function formatName(format: Format): string {
-    return formatAmount(format.unitSize) + " " + format.sizeUnit + (format.packaging ? " " + format.packaging : "");
+    // "1 each each" reads badly: skip the packaging when it repeats the unit
+    const packaging = format.packaging && format.packaging !== format.sizeUnit ? " " + format.packaging : "";
+    return formatAmount(format.unitSize) + " " + format.sizeUnit + packaging;
 }
 
 // "Tito's · 1750 ml bottle · case of 6 · RNDC"  or  "Fresh lime juice (made in-house)"

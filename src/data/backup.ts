@@ -11,7 +11,7 @@ import { db, commit, loadData, replaceAll } from "./storage";
 import { findById, makeId, now, today } from "./utils";
 import { addPrice, currentPrice } from "./prices";
 import { summarize } from "./costing";
-import { buyName, FAMILIES } from "./library";
+import { buyName, FAMILIES, isSupplyFamily } from "./library";
 import { countTotals, formatLabel, unitCost } from "./inventory";
 import { getOrCreateIngredient } from "./actions";
 import { parseMoney, findColumn, toCsv } from "./csv";
@@ -292,7 +292,8 @@ export function importProductRows(rows: ProductRow[]): ImportResult {
         let product = findProduct(row.name);
         if (product === null) {
             product = {
-                id: makeId(), ingredientId: getOrCreateIngredient(row.name).id, name: row.name,
+                // Supplies (paper, cleaning...) never go into recipes, so they get no ingredient
+                id: makeId(), ingredientId: isSupplyFamily(row.family) ? null : getOrCreateIngredient(row.name).id, name: row.name,
                 family: row.family, category: row.category, subcategory: "", producer: "", abv: null, notes: ""
             };
             db.products.push(product);

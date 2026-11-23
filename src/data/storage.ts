@@ -115,7 +115,7 @@ const FAMILY_FROM_CATEGORY: Record<string, string> = {
     "Liquor": "Spirits", "Wine": "Wine", "Beer": "Beer", "Mixer": "Non-alcoholic",
     "Produce": "Produce", "Meat": "Meat & seafood", "Seafood": "Meat & seafood",
     "Dairy": "Dairy", "Dry goods": "Dry goods", "Brewing": "Brewing",
-    "Paper products": "Paper products", "Other": "Other"
+    "Paper products": "Paper & disposables", "Other": "Other"
 };
 
 // Before the product library: each item -> product + format + purchase unit
@@ -171,6 +171,10 @@ function upgradeToProducts(old: OldSave) {
 
 // Give older rows any fields added later (all start empty)
 function fillNewFields(old: OldSave) {
+    // "Paper products" became one of the supply families
+    for (const product of old.products ?? []) {
+        if (product.family === "Paper products") product.family = "Paper & disposables";
+    }
     for (const vendor of old.vendors ?? []) {
         vendor.repEmail ??= "";
         vendor.orderDays ??= "";

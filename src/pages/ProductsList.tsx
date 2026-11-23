@@ -6,10 +6,14 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useDb } from "../data/storage";
-import { FAMILIES, createProduct } from "../data/library";
+import { FAMILIES, createProduct, isSupplyFamily } from "../data/library";
 import { onHand, unitCost, unitWord } from "../data/inventory";
 import { formatName } from "../data/costing";
 import { findById, formatAmount, formatMoney } from "../data/utils";
+
+// Two extra filters: everything that can go in recipes, and everything that can't
+const INGREDIENTS = "__ingredients";
+const SUPPLIES = "__supplies";
 
 export default function ProductsList() {
     const db = useDb();
@@ -26,13 +30,14 @@ export default function ProductsList() {
     //     at least one way to buy it comes from the vendor (or "All")
     const rows = db.products
         .filter((p) => wanted === "" || [p.name, p.category, p.subcategory, p.producer].some((t) => t.toLowerCase().includes(wanted)))
-        .filter((p) => family === "" || p.family === family)
+        .filter((p) => family === "" || p.family === family
+            || (family === INGREDIENTS && !isSupplyFamily(p.family)) || (family === SUPPLIES && isSupplyFamily(p.family)))
         .filter((p) => vendorId === "" || db.formats.some((f) => f.productId === p.id &&
             db.purchaseUnits.some((u) => u.formatId === f.id && u.vendorId === vendorId)))
         .sort((a, b) => a.family.localeCompare(b.family) || a.name.localeCompare(b.name));
 
     function newProduct() {
-        const id = createProduct("New product", family || "Spirits");
+        const id = createProduct("New product", family === SUPPLIES ? "Paper & disposables" : family === "" || family === INGREDIENTS ? "Spirits" : family);
         navigate("/products/" + id);
     }
 
@@ -52,6 +57,8 @@ export default function ProductsList() {
                     Family
                     <select value={family} onChange={(e) => setFamily(e.target.value)}>
                         <option value="">All</option>
+                        <option value={INGREDIENTS}>Ingredients only</option>
+                        <option value={SUPPLIES}>Supplies only</option>
                         {FAMILIES.map((f) => <option key={f}>{f}</option>)}
                     </select>
                 </label>

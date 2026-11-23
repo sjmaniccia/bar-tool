@@ -13,13 +13,62 @@ import { findById, makeId, now } from "./utils";
 import { addPrice } from "./prices";
 import { houseSource, sourceCostPerUnit, sourceUnit, sourcesFor, type Source } from "./costing";
 import { displayUnitFor } from "./units";
+import { getOrCreateIngredient } from "./actions";
 import type { Format, Ingredient, PriceEntry, Product, PurchaseUnit, Vendor } from "./types";
+
+// Things a place buys that never go into a recipe: they can be counted and ordered,
+// but they're never offered as ingredients and stay out of pour cost and variance
+export const SUPPLY_FAMILIES = ["Paper & disposables", "Cleaning & chemicals", "Smallwares & equipment", "Linens & uniforms"];
 
 // Product families, the top level of the library (then category, then subcategory)
 export const FAMILIES = [
     "Spirits", "Wine", "Beer", "Non-alcoholic", "Produce", "Meat & seafood",
-    "Dairy", "Dry goods", "Brewing", "Paper products", "Other"
+    "Dairy", "Dry goods", "Brewing", ...SUPPLY_FAMILIES, "Other"
 ];
+
+export function isSupplyFamily(family: string): boolean {
+    return SUPPLY_FAMILIES.includes(family) || family === "Paper products";
+}
+
+export function isSupply(product: Product | null): boolean {
+    return product !== null && isSupplyFamily(product.family);
+}
+
+// Which supply family a name sounds like ("MOP HEAD" -> Cleaning & chemicals)
+export function guessSupplyFamily(name: string): string {
+    if (/\b(mop|broom|sanitiz|degreas|bleach|detergent|soap|cleaner|chemical|sponge|scrub|squeegee|dish ?wash|rinse aid|glass ?wash|deodor|trash|garbage|can liner|liner)/i.test(name)) return "Cleaning & chemicals";
+    if (/\b(towel|rag|apron|uniform|linen|tablecloth|napkin cloth|chef coat|shirt)/i.test(name) && !/\bpaper\b/i.test(name)) return "Linens & uniforms";
+    if (/\b(glass(es|ware)?|shaker|jigger|strainer|spoon|knife|knives|tongs|pan|pot|tray|ramekin|pitcher|bin|container|cutting board|thermometer|tool)(e?s)?\b/i.test(name) && !/\b(to ?go|disposable|plastic cup|foil)\b/i.test(name)) return "Smallwares & equipment";
+    return "Paper & disposables";
+}
+
+// Does an invoice line or product name sound like a supply rather than food or drink?
+export function soundsLikeSupply(name: string): boolean {
+    return /\b(paper|napkin|towel|tissue|toilet|bath ?tissue|straw|stir ?stick|pick|cups?|lids?|to ?go|container|clamshell|foil|film|plastic wrap|cling wrap|glove|bags?|liner|mop|broom|sanitiz|degreas|bleach|detergent|soap|cleaner|chemical|sponge|scrub|squeegee|rinse aid|apron|linen|rag|coaster|receipt|register roll|tape|fryer oil filter|filter paper|candle|matches|lighter|battery|batteries)(e?s)?\b/i.test(name)    // plurals too: towels, gloves
+        && !/\b(syrup|juice|liqueur|vodka|gin|rum|tequila|mezcal|whiskey|whisky|scotch|bourbon|vermouth|wine|beer|ale|lager|cider|soda|tonic|puree|tea|coffee|tortillas?)\b/i.test(name);
+}
+
+// Turn a product into a supply (or back)
+//     ON:  supply family, and no ingredient (the ingredient goes too if nothing else uses it)
+//     OFF: back to "Other", counted as an ingredient with its own name
+export function setSupply(productId: string, on: boolean) {
+    const product = findById(db.products, productId);
+    if (product === null || isSupply(product) === on) return;
+    if (on) {
+        const old = product.ingredientId;
+        product.family = guessSupplyFamily(product.name + " " + product.category);
+        product.ingredientId = null;
+        const stillUsed = old !== null && (
+            db.products.some((p) => p.ingredientId === old) ||
+            db.recipeLines.some((l) => l.ingredientId === old) ||
+            db.recipes.some((r) => r.producesIngredientId === old));
+        if (old !== null && !stillUsed) db.ingredients = db.ingredients.filter((i) => i.id !== old);
+    } else {
+        product.family = "Other";
+        product.ingredientId = getOrCreateIngredient(product.name).id;
+    }
+    commit();
+}
 
 
 // ===== Products =====

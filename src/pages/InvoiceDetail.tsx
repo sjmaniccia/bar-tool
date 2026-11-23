@@ -13,7 +13,7 @@ import {
     invoiceTotal, removeInvoiceCharge, removeInvoiceLine, setInvoiceStatus, updateInvoice, updateInvoiceCharge,
     updateInvoiceLine
 } from "../data/purchasing";
-import { buyName, unitsFromVendor } from "../data/library";
+import { buyName, isSupply, unitsFromVendor } from "../data/library";
 import { formatOf, formatName, productOf } from "../data/costing";
 import { currentPrice } from "../data/prices";
 import { findById, formatDate, formatMoney, formatPercent } from "../data/utils";
@@ -146,7 +146,11 @@ export default function InvoiceDetail() {
                                     const changed = !locked && Math.abs(line.unitPrice - was) >= 0.005;
                                     return (
                                         <tr key={line.id}>
-                                            <td>{itemName(unit)}<div className="muted small">{buyName(unit)}</div></td>
+                                            <td>
+                                                {itemName(unit)}
+                                                {isSupply(productOf(unit)) && <span className="tag supply-tag" title="Counted and ordered, never in recipes or pour cost">supply</span>}
+                                                <div className="muted small">{buyName(unit)}</div>
+                                            </td>
                                             <td>{locked ? line.quantity : <AmountInput value={line.quantity} className="qty-input" ariaLabel="Quantity"
                                                 onSave={(v) => v !== null && updateInvoiceLine(line.id, { quantity: v })} />}</td>
                                             <td>{locked ? formatMoney(line.unitPrice) : <AmountInput value={line.unitPrice} money className="qty-input wide" ariaLabel="Unit price"
