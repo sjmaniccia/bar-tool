@@ -42,7 +42,8 @@ export function createRecipe(name: string): string {
         glass: "",
         garnish: "",
         description: "",
-        directions: ""
+        directions: "",
+        photo: ""
     };
     db.recipes.push(recipe);
     commit();

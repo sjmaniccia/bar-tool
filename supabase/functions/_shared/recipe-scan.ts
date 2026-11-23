@@ -29,7 +29,16 @@ export interface ScannedRecipe {
     yieldAmount: number;       // 1 serving for a drink; a batch size for a prep recipe
     yieldUnit: string;
     ingredients: ScannedIngredient[];
-    hasPhoto: boolean;         // the page has a picture of this one (FIXME: keep it)
+    hasPhoto: boolean;         // the page has a picture of this one
+    photoBox: PhotoBox | null; // where that picture is on the photo, so the app can cut it out
+}
+
+// Part of the photo, as fractions of its width and height (0 to 1) from the top left
+export interface PhotoBox {
+    x: number;
+    y: number;
+    w: number;
+    h: number;
 }
 
 // Agave's measuring units (src/data/units.ts; a test keeps the two lists the same)
@@ -58,7 +67,12 @@ export const RECIPE_TOOL = {
                         menu_price: { type: "number" },
                         yield_amount: { type: "number", description: "For prep recipes, how much one batch makes" },
                         yield_unit: { type: "string", enum: RECIPE_UNITS },
-                        has_photo: { type: "boolean", description: "Is there a picture of this recipe on the page?" },
+                        has_photo: { type: "boolean", description: "Is there a picture of this recipe (the drink or dish) on the page?" },
+                        photo_box: {
+                            type: "object",
+                            description: "If has_photo: the picture's position, as fractions of the whole image (0 to 1): left edge x, top edge y, width w, height h. Just the picture, not the text.",
+                            properties: { x: { type: "number" }, y: { type: "number" }, w: { type: "number" }, h: { type: "number" } }
+                        },
                         ingredients: {
                             type: "array",
                             items: {
@@ -87,6 +101,7 @@ export const RECIPE_INSTRUCTIONS = [
     "Units: in drinks, oz means fl oz. Ounces of solid food are oz (wt). Use dash for dashes, barspoon for bar spoons, each for whole items (2 mint sprigs = 2 each).",
     "cl is 10 ml: convert cl to ml. If an amount is 'top', 'splash', 'rinse' or 'to taste', leave amount out and put that word in note.",
     "Garnish and glass go in their own fields, not in ingredients, unless the garnish is clearly measured (like 3 each blackberries).",
+    "If a recipe has a picture of the finished drink or dish, set has_photo and give photo_box around just that picture.",
     "If part of the page is unreadable, leave those fields out rather than guessing."
 ].join(" ");
 
@@ -127,6 +142,24 @@ export function unitOf(value: unknown, amount: number | null): string {
 }
 
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+// A usable box: numbers inside the image, not tiny (a smudge), else null
+export function boxOf(raw: unknown): PhotoBox | null {
+    const b = (raw ?? {}) as Record<string, unknown>;
+    const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : NaN);
+    let x = n(b.x), y = n(b.y), w = n(b.w), h = n(b.h);
+    if ([x, y, w, h].some(Number.isNaN)) return null;
+    // Some answers come back in percent: 0-100
+    if (x > 1 || y > 1 || w > 1 || h > 1) { x /= 100; y /= 100; w /= 100; h /= 100; }
+    x = Math.max(0, Math.min(1, x));
+    y = Math.max(0, Math.min(1, y));
+    w = Math.min(w, 1 - x);
+    h = Math.min(h, 1 - y);
+    if (w < 0.08 || h < 0.08) return null;
+    const r = (v: number) => Math.round(v * 1000) / 1000;
+    return { x: r(x), y: r(y), w: r(w), h: r(h) };
+}
+
 const TYPES: ScannedRecipeType[] = ["Cocktail", "Dish", "Beer", "Prep"];
 
 export function cleanRecipes(raw: unknown): { recipes: ScannedRecipe[]; warnings: string[] } {
@@ -155,7 +188,8 @@ export function cleanRecipes(raw: unknown): { recipes: ScannedRecipe[]; warnings
             yieldAmount: yieldAmount ?? 1,
             yieldUnit: yieldAmount !== null && RECIPE_UNITS.includes(text(x.yield_unit)) ? text(x.yield_unit) : "serving",
             ingredients,
-            hasPhoto: x.has_photo === true
+            hasPhoto: x.has_photo === true,
+            photoBox: x.has_photo === true ? boxOf(x.photo_box) : null
         });
     }
     if (recipes.length === 0) warnings.push("No recipes could be read on this page. Try a sharper, flatter photo in good light.");

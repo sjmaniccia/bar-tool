@@ -12,7 +12,7 @@ export default function SpecBooks() {
             <div className="page-header">
                 <div>
                     <h1>Spec books</h1>
-                    <p className="muted">Every drink on each menu: build, glass, garnish and method. No costs, so they can go behind the bar.</p>
+                    <p className="muted">Every recipe on each menu: the build, glass or plate, garnish and method. No costs, so they can go where the staff work.</p>
                 </div>
             </div>
             {db.menus.length === 0 ? (

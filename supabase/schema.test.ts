@@ -52,6 +52,7 @@ beforeAll(async () => {
     await db.exec(readFileSync(new URL("./pos.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./scanning.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./recipe-scanning.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("./team-links.sql", import.meta.url), "utf8"));
     await db.exec(`
         insert into auth.users values
             ('${OWNER}', 'owner@bar.com', now()),
@@ -211,5 +212,54 @@ describe("invoice scan limits", () => {
         expect(mine.rows[0]).toMatchObject({ daily_limit: 3, monthly_limit: 300 });
         const theirs = await as(STRANGER, "select * from public.scan_usage($1)", [barId]);
         expect(theirs.rows).toEqual([]);
+    });
+});
+
+describe("invite links", () => {
+    const NEWBIE = "00000000-0000-0000-0000-0000000000e1";
+    const NEWBIE2 = "00000000-0000-0000-0000-0000000000e2";
+
+    test("an owner's staff link lets someone join as staff, once", async () => {
+        await db.exec(`insert into auth.users values ('${NEWBIE}', 'Newbie@bar.com', null), ('${NEWBIE2}', 'two@bar.com', null)`);
+        const code = (await as(OWNER, "select public.make_invite_link($1) as code", [barId])).rows[0].code as string;
+        expect(code).toMatch(/^[0-9a-f]{64}$/);
+
+        // Before signing in: what the link is for, and nothing else
+        const peek = await as(null, "select * from public.peek_invite_link($1)", [code]);
+        expect(peek.rows).toEqual([{ bar_name: "Shady's", role: "staff" }]);
+        await expect(as(null, "select * from public.invite_links")).rejects.toThrow();
+        await expect(as(null, "select public.join_with_link($1)", [code])).rejects.toThrow();
+
+        const joined = await as(NEWBIE, "select public.join_with_link($1) as bar", [code]);
+        expect(joined.rows[0].bar).toBe(barId);
+        await as(NEWBIE, "select public.join_with_link($1)", [code]);   // again: no change
+        const me = await as(NEWBIE, "select role, email from public.members where bar_id = $1 and user_id = $2", [barId, NEWBIE]);
+        expect(me.rows).toEqual([{ role: "staff", email: "newbie@bar.com" }]);
+        const link = await as(OWNER, "select uses from public.invite_links where code = $1", [code]);
+        expect(link.rows[0].uses).toBe(1);
+    });
+
+    test("staff can't make links, can't see them, and managers can't make manager links", async () => {
+        await expect(as(NEWBIE, "select public.make_invite_link($1)", [barId])).rejects.toThrow();
+        expect((await as(NEWBIE, "select * from public.invite_links")).rows).toEqual([]);
+        await expect(as(STRANGER, "select public.make_invite_link($1)", [barId])).rejects.toThrow();
+        await as(OWNER, "select public.set_member_role($1, $2, 'manager')", [barId, STAFF]);
+        await expect(as(STAFF, "select public.make_invite_link($1, 'manager')", [barId])).rejects.toThrow();
+        const ok = await as(STAFF, "select public.make_invite_link($1, 'staff') as code", [barId]);
+        expect(ok.rows[0].code).toBeTruthy();
+        await as(OWNER, "select public.set_member_role($1, $2, 'staff')", [barId, STAFF]);
+        await expect(as(OWNER, "insert into public.invite_links (code, bar_id, role) values ('x', $1, 'manager')", [barId])).rejects.toThrow();
+    });
+
+    test("a turned-off or expired link stops working", async () => {
+        const code = (await as(OWNER, "select public.make_invite_link($1, 'manager') as code", [barId])).rows[0].code as string;
+        await expect(as(NEWBIE, "select public.revoke_invite_link($1)", [code])).rejects.toThrow();
+        await as(OWNER, "select public.revoke_invite_link($1)", [code]);
+        expect((await as(null, "select * from public.peek_invite_link($1)", [code])).rows).toEqual([]);
+        await expect(as(NEWBIE2, "select public.join_with_link($1)", [code])).rejects.toThrow(/doesn't work anymore/);
+
+        const old = (await as(OWNER, "select public.make_invite_link($1) as code", [barId])).rows[0].code as string;
+        await db.exec(`update public.invite_links set expires_at = now() - interval '1 minute' where code = '${old}'`);
+        await expect(as(NEWBIE2, "select public.join_with_link($1)", [old])).rejects.toThrow(/doesn't work anymore/);
     });
 });

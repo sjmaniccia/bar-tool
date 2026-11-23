@@ -22,6 +22,7 @@ import AmountInput from "../components/AmountInput";
 import TextInput from "../components/TextInput";
 import Status from "../components/Status";
 import { costChanges, snapshotCosts, type CostChange } from "../data/alerts";
+import { celebrate, toast } from "../feedback";
 
 function itemName(unit: PurchaseUnit): string {
     const format = formatOf(unit);
@@ -61,8 +62,11 @@ export default function InvoiceDetail() {
         if (!confirm(message)) return;
         // Take a snapshot of recipe costs, approve, then show what moved
         const before = snapshotCosts();
-        approveInvoice(invoice!.id);
-        setImpact(costChanges(before));
+        const changed = approveInvoice(invoice!.id);
+        const impact = costChanges(before);
+        setImpact(impact);
+        celebrate("small");
+        toast("Invoice approved", { sub: changed === 0 ? "No prices changed." : changed + (changed === 1 ? " price" : " prices") + " updated" + (impact.length > 0 ? ", " + impact.length + (impact.length === 1 ? " recipe cost moved" : " recipe costs moved") : "") + "." });
     }
 
     function remove() {

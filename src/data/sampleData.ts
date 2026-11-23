@@ -12,7 +12,7 @@ function recipe(fields: Partial<Recipe> & Pick<Recipe, "id" | "name">): Recipe {
     return {
         type: "Cocktail", yieldAmount: 1, yieldUnit: "serving", menuPrice: null,
         producesIngredientId: null, laborWage: null, laborMinutes: null,
-        glass: "", garnish: "", description: "", directions: "",
+        glass: "", garnish: "", description: "", directions: "", photo: "",
         ...fields
     };
 }

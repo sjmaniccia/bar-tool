@@ -20,7 +20,9 @@ Recipe costing and inventory for bars, kitchens and breweries, built by a former
   syncing between devices with offline changes sent when the connection is back
 - Square connection: daily sales come in by themselves (a Supabase Edge Function holds the keys)
 - Invoice scanning: photograph an invoice, confirm the total, and lines match to your products (or go on as charges); matches are remembered per vendor
-- Recipe scanning: photograph a recipe book, check the recipes, save them all at once
+- Recipe scanning: photograph a recipe book, check the recipes, save them all at once (pictures on the pages are kept with the recipes)
+- A home screen that sets a new place up one step at a time, tabs that appear as they're needed, and invite links with a QR code
+- Small rewards: sounds, vibration and pop-ups for real progress (settings in the profile menu)
 
 ## Built with
 React 19, TypeScript 7, Vite 8, React Router 8, Vitest. Supabase (Postgres, Auth, Realtime)
@@ -79,6 +81,8 @@ supabase/
   functions/scan-invoice  reads invoice photos with Claude (holds the Anthropic key)
   functions/scan-recipes  reads recipe book pages with Claude
   recipe-scanning.sql  recipe page limits (150 a day, 600 a month by default)
+  team-links.sql   invite links (join by QR code or a texted link)
+  recipe-photos.sql  the storage bucket for recipe pictures
   scanning.sql     scan limits per bar (20 a day, 300 a month by default)
   square-test-sales.mjs  rings up fake sales in Square's sandbox
 ```

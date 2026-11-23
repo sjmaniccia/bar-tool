@@ -271,7 +271,8 @@ export function addClassic(classic: Classic): string {
         glass: classic.glass,
         garnish: classic.garnish,
         description: classic.description,
-        directions: classic.directions
+        directions: classic.directions,
+        photo: ""
     };
     db.recipes.push(recipe);
     for (const [amount, unit, name] of classic.build) {

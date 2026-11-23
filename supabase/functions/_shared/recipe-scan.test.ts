@@ -2,7 +2,7 @@
 // Checks the clean-up of what Claude reads off a recipe book page.
 
 import { describe, expect, test } from "vitest";
-import { amountOf, cleanRecipes, RECIPE_UNITS, unitOf } from "./recipe-scan";
+import { amountOf, boxOf, cleanRecipes, RECIPE_UNITS, unitOf } from "./recipe-scan";
 import { YIELD_UNITS } from "../../../src/data/units";
 
 describe("recipe scan clean-up", () => {
@@ -62,6 +62,20 @@ describe("recipe scan clean-up", () => {
             recipes: [{ name: "Honey syrup", type: "Prep", yield_amount: 1, yield_unit: "L", ingredients: [{ amount: 500, unit: "g", name: "Honey" }] }]
         });
         expect(recipes[0]).toMatchObject({ type: "Prep", yieldAmount: 1, yieldUnit: "L" });
+    });
+
+    test("photo boxes are kept inside the picture, and tiny ones dropped", () => {
+        expect(boxOf({ x: 0.5, y: 0.1, w: 0.4, h: 0.3 })).toEqual({ x: 0.5, y: 0.1, w: 0.4, h: 0.3 });
+        expect(boxOf({ x: 50, y: 10, w: 40, h: 30 })).toEqual({ x: 0.5, y: 0.1, w: 0.4, h: 0.3 });   // percent
+        expect(boxOf({ x: 0.8, y: 0.8, w: 0.5, h: 0.5 })).toEqual({ x: 0.8, y: 0.8, w: 0.2, h: 0.2 });  // clipped
+        expect(boxOf({ x: 0.1, y: 0.1, w: 0.02, h: 0.3 })).toBeNull();
+        expect(boxOf(undefined)).toBeNull();
+        const { recipes } = cleanRecipes({ recipes: [
+            { name: "Paper Plane", has_photo: true, photo_box: { x: 0.55, y: 0.05, w: 0.4, h: 0.45 }, ingredients: [{ amount: 0.75, unit: "fl oz", name: "Bourbon" }] },
+            { name: "Spritz", has_photo: false, photo_box: { x: 0, y: 0, w: 1, h: 1 }, ingredients: [] }
+        ] });
+        expect(recipes[0].photoBox).toEqual({ x: 0.55, y: 0.05, w: 0.4, h: 0.45 });
+        expect(recipes[1].photoBox).toBeNull();
     });
 
     test("an empty page says so", () => {

@@ -34,11 +34,13 @@ export interface Session {
     bars: BarInfo[];
     bar: BarInfo | null;
     sync: SyncStatus;
+    notice: string;             // a one-time message, like "You joined Shady's Corner"
 }
 
 const DEMO_KEY = "agave.demo";
 const BAR_KEY = "agave.bar";
 const CACHE_PREFIX = "agave.cache.";
+const JOIN_KEY = "agave.join";        // an invite link's code, kept until the person is signed in
 
 let session: Session = {
     mode: cloudEnabled ? "loading" : "local",
@@ -47,7 +49,8 @@ let session: Session = {
     userId: "",
     bars: [],
     bar: null,
-    sync: { state: "saved", pending: 0, message: "" }
+    sync: { state: "saved", pending: 0, message: "" },
+    notice: ""
 };
 let engine: SyncEngine | null = null;
 const listeners = new Set<() => void>();
@@ -76,6 +79,13 @@ export function currentSession(): Session {
 //     ELSE check for a signed-in person, and watch for sign-ins and sign-outs
 export function startSession() {
     if (!cloudEnabled) return;
+    // Opened from an invite link (?join=code): remember the code through sign-up
+    const join = new URLSearchParams(location.search).get("join");
+    if (join && /^[0-9a-f]{64}$/.test(join)) {
+        write(JOIN_KEY, join);
+        remove(DEMO_KEY);
+        history.replaceState(null, "", location.pathname + location.hash);
+    }
     if (read(DEMO_KEY) === "1") {
         set({ mode: "local", demo: true });
         return;
@@ -95,10 +105,24 @@ export function startSession() {
 }
 
 // Someone signed in: join any bars that invited them, then open a bar
+//     IF they came from an invite link -> join that bar and open it
 async function signedIn(user: User) {
     set({ mode: "loading", email: user.email ?? "", userId: user.id });
     await supabase!.rpc("accept_invites");
+    const joinCode = read(JOIN_KEY);
+    let joinedBar: string | null = null;
+    if (joinCode) {
+        remove(JOIN_KEY);
+        const { data, error } = await supabase!.rpc("join_with_link", { link_code: joinCode });
+        if (error) set({ notice: error.message });
+        else joinedBar = data as string;
+    }
     const bars = await loadBars();
+    if (joinedBar) {
+        write(BAR_KEY, joinedBar);
+        const bar = bars.find((b) => b.id === joinedBar);
+        if (bar) set({ notice: "You joined " + bar.name + ". Welcome to the team." });
+    }
     const saved = bars.find((b) => b.id === read(BAR_KEY)) ?? bars[0] ?? null;
     if (saved === null) {
         set({ mode: "no-bar", bars });
@@ -183,6 +207,15 @@ export async function createBar(name: string, startWith: StartWith): Promise<str
     return null;
 }
 
+export function clearNotice() {
+    set({ notice: "" });
+}
+
+// The invite link this person opened, if they haven't signed in yet
+export function pendingJoinCode(): string | null {
+    return read(JOIN_KEY);
+}
+
 // Does this browser have data from before signing up (worth bringing along)?
 export function hasDeviceData(): boolean {
     const data = deviceData();
@@ -193,8 +226,10 @@ export function hasDeviceData(): boolean {
 // ===== Signing in and out =====
 
 // Where email links send people back to (this page, without any #/page)
+//     carrying an invite link's code, in case the email opens in another browser
 function returnAddress(): string {
-    return location.origin + location.pathname;
+    const join = read(JOIN_KEY);
+    return location.origin + location.pathname + (join ? "?join=" + join : "");
 }
 
 export async function signIn(email: string, password: string): Promise<string | null> {

@@ -189,6 +189,7 @@ function fillNewFields(old: OldSave) {
     }
     for (const recipe of old.recipes ?? []) {
         recipe.producesIngredientId ??= null;
+        recipe.photo ??= "";
         recipe.laborWage ??= null;
         recipe.laborMinutes ??= null;
         recipe.glass ??= "";

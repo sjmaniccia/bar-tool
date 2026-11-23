@@ -16,6 +16,7 @@ import type { PurchaseUnit } from "../data/types";
 import AmountInput from "../components/AmountInput";
 import TextInput from "../components/TextInput";
 import Status from "../components/Status";
+import { toast } from "../feedback";
 
 // "Island White Rum 1000 ml bottle"
 function itemName(unit: PurchaseUnit): string {
@@ -87,7 +88,7 @@ export default function OrderDetail() {
                     </div>
                 </div>
                 <div className="button-row">
-                    {draft && <button onClick={() => setOrderStatus(order.id, "sent")} disabled={lines.length === 0}>Mark sent</button>}
+                    {draft && <button onClick={() => { setOrderStatus(order.id, "sent"); toast("Order marked sent", { sound: "whoosh", action: { label: "Undo", run: () => setOrderStatus(order.id, "draft") } }); }} disabled={lines.length === 0}>Mark sent</button>}
                     {order.status === "sent" && <button onClick={receive}>Receive delivery</button>}
                     {order.status === "sent" && <button className="secondary" onClick={() => setOrderStatus(order.id, "draft")}>Back to draft</button>}
                     <button className="danger" onClick={remove}>Delete</button>

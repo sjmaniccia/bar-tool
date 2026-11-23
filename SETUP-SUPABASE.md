@@ -22,6 +22,15 @@ syncing between devices. It takes about 15 minutes and costs nothing.
 Run the file only once. (To start over: Project Settings → General → delete the
 project, and make a new one.)
 
+Then, the same way, each in its own new query, once:
+
+| File | What it adds |
+|---|---|
+| `supabase/team-links.sql` | Invite links and QR codes (staff join by scanning) |
+| `supabase/recipe-photos.sql` | Recipe pictures (a storage bucket, managers can add) |
+| `supabase/pos.sql` | Square (see SETUP-SQUARE.md) |
+| `supabase/scanning.sql`, then `supabase/recipe-scanning.sql` | Scan limits (see SETUP-SCANNING.md) |
+
 ## 3. Sign-in settings
 
 Open **Authentication** → **URL Configuration**:

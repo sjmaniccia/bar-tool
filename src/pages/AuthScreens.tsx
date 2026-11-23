@@ -2,11 +2,12 @@
 // The screens before the app: sign in, create an account, reset a password,
 // and set up a bar. They share one centered card with the Agave seal.
 
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
-    createBar, hasDeviceData, sendPasswordReset, setNewPassword, signIn, signOut, signUp,
+    createBar, hasDeviceData, pendingJoinCode, sendPasswordReset, setNewPassword, signIn, signOut, signUp,
     startDemo, useSession, type StartWith
 } from "../cloud/session";
+import { peekInviteLink } from "../cloud/team";
 import { supabase } from "../cloud/client";
 import { BrandMark } from "../components/BrandMark";
 
@@ -39,7 +40,14 @@ export function LoadingScreen() {
 type Tab = "in" | "up" | "forgot";
 
 export function SignInScreen() {
-    const [tab, setTab] = useState<Tab>("in");
+    // Came from an invite link? Say which bar, and start on "Create account"
+    const joinCode = pendingJoinCode();
+    const [joining, setJoining] = useState<{ barName: string; role: string } | null | "bad">(null);
+    useEffect(() => {
+        if (!joinCode) return;
+        void peekInviteLink(joinCode).then((info) => setJoining(info ?? "bad"));
+    }, [joinCode]);
+    const [tab, setTab] = useState<Tab>(joinCode ? "up" : "in");
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -88,6 +96,13 @@ export function SignInScreen() {
     const titles: Record<Tab, string> = { in: "Sign in", up: "Create your account", forgot: "Reset your password" };
     return (
         <AuthCard title={titles[tab]} subtitle={tab === "forgot" ? "We'll email you a link to set a new one." : undefined}>
+            {joining && joining !== "bad" && (
+                <div className="auth-joining" role="status">
+                    You're joining <strong>{joining.barName}</strong> as {joining.role === "manager" ? "a manager" : "staff"}.
+                    {tab === "up" ? " Make an account to get in." : " Sign in to get in."}
+                </div>
+            )}
+            {joining === "bad" && <p className="error" role="alert">That invite link doesn't work anymore. Ask for a new one.</p>}
             {tab !== "forgot" && (
                 <div className="tab-row auth-tabs" role="tablist">
                     <button type="button" role="tab" aria-selected={tab === "in"} className={"tab" + (tab === "in" ? " active" : "")} onClick={() => switchTab("in")}>Sign in</button>
@@ -116,10 +131,12 @@ export function SignInScreen() {
                 {tab === "in" && <button className="link-button" onClick={() => switchTab("forgot")}>Forgot your password?</button>}
                 {tab === "forgot" && <button className="link-button" onClick={() => switchTab("in")}>Back to sign in</button>}
             </div>
-            <div className="auth-demo">
-                <span className="muted small">Just looking?</span>
-                <button className="secondary" onClick={startDemo}>Try it without an account</button>
-            </div>
+            {!joinCode && (
+                <div className="auth-demo">
+                    <span className="muted small">Just looking?</span>
+                    <button className="secondary" onClick={startDemo}>Try it without an account</button>
+                </div>
+            )}
         </AuthCard>
     );
 }
@@ -165,7 +182,7 @@ export function BarSetupScreen() {
 
     async function submit(event: FormEvent) {
         event.preventDefault();
-        if (name.trim() === "") return setError("Give your bar a name.");
+        if (name.trim() === "") return setError("Give your place a name.");
         setBusy(true);
         const result = await createBar(name, start);
         if (result) {
@@ -184,11 +201,11 @@ export function BarSetupScreen() {
     const options: { value: StartWith; label: string; note: string; show: boolean }[] = [
         { value: "device", label: "What I set up on this device", note: "Bring along the recipes and products you made before signing up.", show: deviceHasData },
         { value: "empty", label: "Nothing", note: "Start fresh, or import a price list from Backup & export.", show: true },
-        { value: "sample", label: "The sample bar", note: "Example recipes, counts and invoices to explore. You can clear them later.", show: true }
+        { value: "sample", label: "Sample recipes and data", note: "Example recipes, counts and invoices to explore. You can clear them later.", show: true }
     ];
 
     return (
-        <AuthCard title="Set up your bar" subtitle={"Signed in as " + session.email + "."}>
+        <AuthCard title="Set up your place" subtitle={"Signed in as " + session.email + "."}>
             <form className="auth-form" onSubmit={submit}>
                 <label className="form-field">
                     <span>Bar, restaurant or brewery name</span>
@@ -204,11 +221,11 @@ export function BarSetupScreen() {
                     ))}
                 </fieldset>
                 {error && <p className="error" role="alert">{error}</p>}
-                <button type="submit" disabled={busy}>{busy ? "Setting up…" : "Create bar"}</button>
+                <button type="submit" disabled={busy}>{busy ? "Setting up…" : "Set it up"}</button>
             </form>
             <div className="auth-invite">
                 <p className="muted small">
-                    Joining a team instead? Ask your manager to invite <strong>{session.email}</strong> from their Team page, then:
+                    Joining a team instead? Ask your manager for their invite link or QR code, or to invite <strong>{session.email}</strong>, then:
                 </p>
                 <div className="button-row">
                     <button className="secondary" disabled={busy} onClick={checkInvites}>I've been invited</button>

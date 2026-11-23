@@ -14,7 +14,7 @@ beforeEach(() => {
 function recipe(name: string, ingredients: [number | null, string, string, string?][], more: Partial<ScannedRecipe> = {}): ScannedRecipe {
     return {
         name, type: "Cocktail", glass: "Coupe", garnish: "", directions: "Shake.", description: "", menuPrice: null,
-        yieldAmount: 1, yieldUnit: "serving", hasPhoto: false,
+        yieldAmount: 1, yieldUnit: "serving", hasPhoto: false, photoBox: null,
         ingredients: ingredients.map(([amount, unit, n, note]) => ({ amount, unit, name: n, note: note ?? "" })),
         ...more
     };

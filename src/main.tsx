@@ -17,7 +17,7 @@
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { Navigate, createHashRouter } from "react-router";
+import { createHashRouter } from "react-router";
 import { RouterProvider } from "react-router/dom";
 import Gate from "./components/Gate";
 import Dashboard from "./pages/Dashboard";
@@ -34,6 +34,7 @@ import CountDetail from "./pages/CountDetail";
 import OrdersList from "./pages/OrdersList";
 import OrderDetail from "./pages/OrderDetail";
 import ScanInvoice from "./pages/ScanInvoice";
+import Home from "./pages/Home";
 import ScanRecipes from "./pages/ScanRecipes";
 import InvoicesList from "./pages/InvoicesList";
 import InvoiceDetail from "./pages/InvoiceDetail";
@@ -78,7 +79,7 @@ const router = createHashRouter([
         path: "/",
         element: <Gate />,                   // sign-in screens, or the sidebar + header around every page
         children: [
-            { index: true, element: <Navigate to="/recipes" replace /> },   // recipes are the home page
+            { index: true, element: <Home /> },   // the next setup step, or what needs you today
             { path: "dashboard", element: <Dashboard /> },
             { path: "recipes", element: <RecipesList /> },
             { path: "recipes/scan", element: <ScanRecipes /> },

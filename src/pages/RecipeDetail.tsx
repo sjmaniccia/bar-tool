@@ -1,6 +1,6 @@
 // ===== RecipeDetail.tsx =====
 // One recipe, laid out as:
-//     header with Edit details / Duplicate / Print / Delete
+//     header: picture (add/change), name, and Edit details / Duplicate / Print / Delete
 //     yield and labor | training details | cost breakdown
 //     costing summary (menu price, ingredient, labor, total, profit, suggested)
 //     ingredients table (edit in place, add at the bottom)
@@ -15,6 +15,7 @@ import CostingSummary from "../components/recipe/CostingSummary";
 import CostBreakdown from "../components/recipe/CostBreakdown";
 import IngredientsTable from "../components/recipe/IngredientsTable";
 import AmountInput from "../components/AmountInput";
+import RecipePhoto from "../components/recipe/RecipePhoto";
 
 export default function RecipeDetail() {
     const db = useDb();
@@ -75,12 +76,15 @@ export default function RecipeDetail() {
             <Link to="/recipes" className="back no-print">← All Recipes</Link>
 
             <div className="page-header">
-                <div>
+                <div className="recipe-title">
+                    <RecipePhoto recipe={recipe} />
+                    <div>
                     <h1>{recipe.name}</h1>
                     <div className="tags">
                         <span className="tag">{recipe.type}</span>
                         {makes && <span className="tag house">makes {makes.name}</span>}
                         {usedBy.length > 0 && <span className="tag">used in {usedBy.map((r) => r.name).join(", ")}</span>}
+                    </div>
                     </div>
                 </div>
                 <div className="button-row no-print">

@@ -47,6 +47,8 @@ export interface RecipeDraft {
     yieldAmount: number;
     yieldUnit: string;
     hasPhoto: boolean;
+    photo: string;                 // the picture cut out of the page (a web address or data), "" for none
+    photoBlob?: Blob | null;       // the cut-out picture, until it's saved (then photo is its address)
     lines: RecipeDraftLine[];
 }
 
@@ -109,7 +111,7 @@ export function buildRecipeDrafts(recipes: ScannedRecipe[], page: number): Recip
         return {
             key: makeId(), page, include: duplicateOf === null, duplicateOf,
             name: r.name, type: r.type, glass: r.glass, garnish: r.garnish, directions: r.directions, description: r.description,
-            menuPrice: r.menuPrice, yieldAmount: r.yieldAmount, yieldUnit: r.yieldUnit, hasPhoto: r.hasPhoto,
+            menuPrice: r.menuPrice, yieldAmount: r.yieldAmount, yieldUnit: r.yieldUnit, hasPhoto: r.hasPhoto, photo: "",
             lines: r.ingredients.map((g) => ({
                 scanned: g, amount: g.amount, unit: g.unit, newName: tidyName(g.name),
                 ...matchIngredient(g.name)
@@ -172,7 +174,8 @@ export function saveRecipeDraft(draft: RecipeDraft, shortNames = new Map<string,
         glass: draft.glass,
         garnish: draft.garnish,
         description: draft.description,
-        directions: draft.directions + (notes.length > 0 ? (draft.directions ? "\n" : "") + "Notes: " + notes.join("; ") + "." : "")
+        directions: draft.directions + (notes.length > 0 ? (draft.directions ? "\n" : "") + "Notes: " + notes.join("; ") + "." : ""),
+        photo: draft.photo
     };
     if (draft.type === "Prep") {
         const makes = findById(db.ingredients, ingredientFor(draft.name))!;

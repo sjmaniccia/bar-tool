@@ -95,6 +95,7 @@ export interface Recipe {
     garnish: string;
     description: string;                  // the story behind it, for staff
     directions: string;                   // how to make it
+    photo: string;                        // a picture of it: a web address, or "" for none
 }
 
 // One ingredient line: uses an ingredient OR a sub-recipe

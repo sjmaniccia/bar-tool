@@ -14,6 +14,7 @@ import { cancelInvite, invite, listInvites, listMembers, removeMember, renameBar
 import type { Role } from "../cloud/sync";
 import { formatDate } from "../data/utils";
 import TextInput from "../components/TextInput";
+import InviteCard from "../components/InviteCard";
 
 export default function Team() {
     const session = useSession();
@@ -74,6 +75,13 @@ export default function Team() {
             </div>
             {error && <p className="error" role="alert">{error}</p>}
 
+            {canInvite && (
+                <section className="card">
+                    <h2>Invite your team</h2>
+                    <InviteCard />
+                </section>
+            )}
+
             {isOwner && (
                 <section className="card">
                     <h2>Bar</h2>
@@ -132,15 +140,15 @@ export default function Team() {
 
             {canInvite && (
                 <section className="card">
-                    <h2>Invite someone</h2>
+                    <h2>Or invite by email</h2>
                     <p className="muted small">
-                        They join as soon as they make a Agave account with this email (or sign in, if they have one).
-                        Agave doesn't email them yet, so send them the link to the app yourself.
+                        They join as soon as they make an Agave account with this email (or sign in, if they have one).
+                        Agave doesn't email them yet, so the link above is quicker.
                     </p>
                     <form className="invite-form" onSubmit={sendInvite}>
                         <label className="form-field">
                             <span>Email</span>
-                            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="bartender@example.com" />
+                            <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="name@example.com" />
                         </label>
                         <label className="form-field">
                             <span>Role</span>

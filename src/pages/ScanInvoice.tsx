@@ -29,6 +29,7 @@ import { formatMoney, makeId } from "../data/utils";
 import AmountInput from "../components/AmountInput";
 import TextInput from "../components/TextInput";
 import PhotoPicker from "../components/PhotoPicker";
+import { celebrate, toast } from "../feedback";
 
 const NEW_PRODUCT = "__new";
 const CHARGE = "__charge";
@@ -93,9 +94,13 @@ export default function ScanInvoice() {
             if (!reply.ok) {
                 setError(reply.error);
             } else {
-                setDraft(buildDraft(reply.invoice));
+                const next = buildDraft(reply.invoice);
+                setDraft(next);
                 setWarnings(reply.warnings);
                 setStep("confirm");
+                const matched = next.lines.filter((l) => l.use !== "product" || l.purchaseUnitId).length;
+                celebrate("small");
+                toast("Invoice read", { sub: next.lines.length + " lines · " + matched + " sorted on their own" });
             }
         } catch (e) {
             setError("Couldn't read that photo: " + (e instanceof Error ? e.message : String(e)));
@@ -260,6 +265,7 @@ export default function ScanInvoice() {
         if (totals.off !== null && Math.abs(totals.off) > 0.05) problems.push("It's " + formatMoney(Math.abs(totals.off)) + (totals.off > 0 ? " over" : " under") + " the invoice total.");
         if (problems.length > 0 && !confirm(problems.join(" ") + " Create the invoice anyway?")) return;
         navigate("/invoices/" + createInvoiceFromDraft(d));
+        toast("Invoice created", { sub: "Approve it to update prices.", sound: "tick" });
     }
 
     const selectValue = (line: DraftLine) => (line.use === "skip" ? SKIP : line.use === "charge" ? CHARGE : line.purchaseUnitId ?? "");

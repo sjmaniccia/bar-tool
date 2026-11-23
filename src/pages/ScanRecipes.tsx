@@ -10,13 +10,17 @@
 //                     "check"    a close name or a product's name: make sure it's right
 //                     "new"      a new ingredient, made when saved
 //                 recipes the bar already has start un-ticked
-//     4. SAVE     the ticked recipes (prep recipes first, so cocktails can use them)
+//                 a recipe with a picture on the page gets it cut out and shown on its card
+//     4. SAVE     the pictures are kept (Supabase Storage), then the ticked recipes
+//                 (prep recipes first, so cocktails can use them)
 
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useDb } from "../data/storage";
 import { useSession } from "../cloud/session";
 import { limitReached, MAX_RECIPE_PAGES, scanRecipePage, scanUsage, shrinkPhoto, type ScanUsage } from "../cloud/scan";
+import { cropPhoto, savePhoto } from "../cloud/photos";
+import { celebrate, playSound, toast } from "../feedback";
 import {
     buildRecipeDrafts, newIngredientNames, saveRecipeDrafts,
     type IngredientHow, type RecipeDraft, type RecipeDraftLine
@@ -53,6 +57,7 @@ export default function ScanRecipes() {
     const [error, setError] = useState("");
     const [usage, setUsage] = useState<ScanUsage | null>(null);
     const [saved, setSaved] = useState<string[] | null>(null);
+    const [saving, setSaving] = useState("");     // "Saving pictures 2 of 5…" while saving
     const barId = session.mode === "ready" ? session.bar?.id ?? null : null;
 
     useEffect(() => {
@@ -98,9 +103,19 @@ export default function ScanRecipes() {
                         continue;
                     }
                     const found = buildRecipeDrafts(reply.recipes, i + 1);
+                    // Cut each recipe's picture out of the full-size photo (sharper than what was sent)
+                    for (let k = 0; k < found.length; k++) {
+                        const box = reply.recipes[k].photoBox;
+                        if (!box) continue;
+                        try {
+                            const blob = await cropPhoto(list[i].file, box);
+                            found[k] = { ...found[k], photoBlob: blob, photo: URL.createObjectURL(blob) };
+                        } catch { /* no picture then */ }
+                    }
                     setDrafts((current) => [...current.filter((d) => d.page !== i + 1), ...found].sort((a, b) => a.page - b.page));
                     const count = found.length + (found.length === 1 ? " recipe" : " recipes");
                     setPage(i, { status: "done", message: reply.warnings.length > 0 ? count + ". " + reply.warnings.join(" ") : count });
+                    playSound("tick");
                 } catch (e) {
                     setPage(i, { status: "failed", message: e instanceof Error ? e.message : String(e) });
                 }
@@ -132,12 +147,33 @@ export default function ScanRecipes() {
             : d)));
     }
 
-    function save() {
-        const ids = saveRecipeDrafts(drafts);
+    // Keep the pictures first (their addresses go on the recipes), then save the recipes
+    async function save() {
+        const ready: RecipeDraft[] = [];
+        let photoProblem = "";
+        const withPhotos = drafts.filter((d) => d.include && d.photoBlob).length;
+        let done = 0;
+        for (const d of drafts) {
+            if (!d.include || !d.photoBlob) {
+                ready.push(d);
+                continue;
+            }
+            setSaving("Saving pictures " + (++done) + " of " + withPhotos + "…");
+            const kept = await savePhoto(session.mode === "ready" ? barId : null, d.photoBlob);
+            if ("url" in kept) ready.push({ ...d, photo: kept.url, photoBlob: null });
+            else {
+                photoProblem = kept.error;
+                ready.push({ ...d, photo: "", photoBlob: null });
+            }
+        }
+        const ids = saveRecipeDrafts(ready);
+        setSaving("");
         setSaved(ids);
         setDrafts([]);
         setPages([]);
         setFiles([]);
+        celebrate("big");
+        toast(ids.length + (ids.length === 1 ? " recipe" : " recipes") + " added", { sub: photoProblem ? "Pictures weren't kept: " + photoProblem : "Your recipe book is going digital." });
     }
 
     function startOver() {
@@ -199,7 +235,7 @@ export default function ScanRecipes() {
                 </section>
                 <p className="muted small">
                     The photos go to Agave's server and to Claude (Anthropic) to be read, then they're thrown away.
-                    Nothing is saved until you press Save. Pictures of the drinks aren't kept yet.
+                    Nothing is saved until you press Save. Pictures on the pages are cut out and kept with the recipes.
                 </p>
             </div>
         );
@@ -222,7 +258,7 @@ export default function ScanRecipes() {
                 </div>
                 <div className="button-row">
                     <button className="secondary" onClick={startOver}>Start over</button>
-                    <button onClick={save} disabled={reading || chosen.length === 0}>Save {chosen.length} {chosen.length === 1 ? "recipe" : "recipes"}</button>
+                    <button onClick={() => void save()} disabled={reading || chosen.length === 0 || saving !== ""}>{saving || "Save " + chosen.length + (chosen.length === 1 ? " recipe" : " recipes")}</button>
                 </div>
             </div>
 
@@ -256,8 +292,14 @@ export default function ScanRecipes() {
                             {TYPES.map((t) => <option key={t}>{t}</option>)}
                         </select>
                         <span className="tag">page {d.page}</span>
-                        {d.hasPhoto && <span className="tag" title="There's a picture of this one on the page. Agave doesn't keep pictures yet.">has a photo</span>}
+                        {d.hasPhoto && !d.photo && <span className="tag" title="There's a picture on the page, but it couldn't be cut out. Add one on the recipe after saving.">photo on the page</span>}
                     </div>
+                    {d.photo && (
+                        <div className="recipe-scan-photo">
+                            <img src={d.photo} alt={"Picture of " + d.name} />
+                            <button className="link-button" onClick={() => setDraft(d.key, { photo: "", photoBlob: null })}>Don't keep this picture</button>
+                        </div>
+                    )}
                     {d.duplicateOf && (
                         <p className="warn small recipe-scan-dup">
                             You already have <Link to={"/recipes/" + d.duplicateOf}>{findById(db.recipes, d.duplicateOf)?.name}</Link>.

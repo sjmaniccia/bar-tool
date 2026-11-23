@@ -100,6 +100,7 @@ export default function RecipesList() {
                                 // Clicking anywhere on the row opens the recipe
                                 <tr key={recipe.id} className="clickable" onClick={() => navigate("/recipes/" + recipe.id)}>
                                     <td>
+                                        {recipe.photo && <img className="recipe-thumb" src={recipe.photo} alt="" loading="lazy" />}
                                         <Link to={"/recipes/" + recipe.id} onClick={(e) => e.stopPropagation()}>
                                             <strong>{recipe.name}</strong>
                                         </Link>{" "}

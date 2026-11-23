@@ -24,6 +24,7 @@ import AmountInput from "../components/AmountInput";
 import Status from "../components/Status";
 import FillPicker from "../components/FillPicker";
 import BarcodeScanner, { cameraScanAvailable } from "../components/BarcodeScanner";
+import { celebrate, toast } from "../feedback";
 
 const SUMMARY = "summary";
 
@@ -107,7 +108,7 @@ export default function CountDetail() {
                 <div className="button-row">
                     {locked
                         ? <button className="secondary" onClick={() => updateCount(count.id, { status: "open" })}>Reopen</button>
-                        : <button onClick={() => updateCount(count.id, { status: "closed" })}>Finish count</button>}
+                        : <button onClick={() => { updateCount(count.id, { status: "closed" }); celebrate("big"); toast("Count finished", { sub: "On-hand and inventory value are up to date." }); }}>Finish count</button>}
                     <button className="secondary" onClick={() => window.print()}>Print</button>
                     <button className="danger" onClick={remove}>Delete</button>
                 </div>

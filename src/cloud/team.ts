@@ -69,3 +69,50 @@ export const ROLE_NOTES: Record<Role, string> = {
     manager: "Everything except changing owners and managers",
     staff: "Counts, waste log, training and spec books"
 };
+
+
+// ===== Invite links (team-links.sql) =====
+// A link anyone can open to join the bar: shown as a QR code, or texted.
+
+export interface InviteLink {
+    code: string;
+    role: Role;
+    url: string;
+    expiresAt: string;
+    uses: number;
+}
+
+// Where a link points: this app, with ?join=<code>
+export function linkUrl(code: string): string {
+    return location.origin + location.pathname + "?join=" + code;
+}
+
+// The newest working link for a role, or a new one -> the link, or an error message
+export async function inviteLinkFor(barId: string, role: Role): Promise<InviteLink | string> {
+    const { data, error } = await supabase!.from("invite_links")
+        .select("code, role, expires_at, uses, max_uses, revoked")
+        .eq("bar_id", barId).eq("role", role).eq("revoked", false)
+        .gt("expires_at", new Date(Date.now() + 24 * 3600 * 1000).toISOString())   // at least a day left
+        .order("created_at", { ascending: false }).limit(1);
+    if (error) return /invite_links/.test(error.message) ? "Invite links aren't set up yet: run supabase/team-links.sql." : error.message;
+    const row = (data ?? []).find((l) => l.uses < l.max_uses);
+    if (row) return { code: row.code, role: row.role, url: linkUrl(row.code), expiresAt: row.expires_at, uses: row.uses };
+    const made = await supabase!.rpc("make_invite_link", { target_bar: barId, link_role: role });
+    if (made.error) return made.error.message;
+    const code = made.data as string;
+    return { code, role, url: linkUrl(code), expiresAt: new Date(Date.now() + 14 * 24 * 3600 * 1000).toISOString(), uses: 0 };
+}
+
+// Turn a link off and make a fresh one (if the QR code got out somewhere it shouldn't)
+export async function replaceInviteLink(barId: string, link: InviteLink): Promise<InviteLink | string> {
+    const { error } = await supabase!.rpc("revoke_invite_link", { link_code: link.code });
+    if (error) return error.message;
+    return inviteLinkFor(barId, link.role);
+}
+
+// What a link is for, before signing in -> {barName, role}, or null if it doesn't work
+export async function peekInviteLink(code: string): Promise<{ barName: string; role: Role } | null> {
+    const { data, error } = await supabase!.rpc("peek_invite_link", { link_code: code });
+    const row = (data as { bar_name: string; role: Role }[] | null)?.[0];
+    return error || !row ? null : { barName: row.bar_name, role: row.role };
+}
