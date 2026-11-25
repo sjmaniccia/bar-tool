@@ -27,6 +27,7 @@ Then, the same way, each in its own new query, once:
 | File | What it adds |
 |---|---|
 | `supabase/team-links.sql` | Invite links and QR codes (staff join by scanning) |
+| `supabase/feedback.sql` | The suggestion box: read messages in Table Editor > feedback |
 | `supabase/recipe-photos.sql` | Recipe pictures (a storage bucket, managers can add) |
 | `supabase/pos.sql` | Square (see SETUP-SQUARE.md) |
 | `supabase/scanning.sql`, then `supabase/recipe-scanning.sql` | Scan limits (see SETUP-SCANNING.md) |

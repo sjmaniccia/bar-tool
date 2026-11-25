@@ -10,7 +10,7 @@
 //     no-bar         signed in but not in a bar yet: create one or wait for an invite
 //     ready          signed in with a bar open and syncing
 
-import { isNative, WEB_ADDRESS } from "../native";
+import { APP_LINK, isNative, onAppLink } from "../native";
 import { useSyncExternalStore } from "react";
 import type { User } from "@supabase/supabase-js";
 import { cloudEnabled, supabase, supabaseTransport } from "./client";
@@ -105,8 +105,14 @@ export function startSession() {
             else if (!auth?.user && session.mode !== "local") signedOutLocally();
         }, 0);
     });
+    onAppLink((link) => void openedFromAppLink(link));
     // Remove ?code=... from the address once the email link has signed someone in
+    //     IF nobody got signed in by it -> the link was opened in a different browser
+    //     than the one that asked (Supabase keeps half the key there) or it's expired
     if (location.search.includes("code=")) {
+        void supabase!.auth.getSession().then(({ data }) => {
+            if (!data.session) set({ notice: "That link has to be opened on the same phone or browser where you asked for it, within an hour. Ask for a new one there." });
+        });
         setTimeout(() => history.replaceState(null, "", location.pathname + location.hash), 2000);
     }
 }
@@ -242,11 +248,30 @@ export function hasDeviceData(): boolean {
 
 // Where email links send people back to (this page, without any #/page)
 //     carrying an invite link's code, in case the email opens in another browser
-//     In the iPhone app the links open the website (an email can't open the app yet)
+//     In the iPhone app the links open the app itself (agave://auth), so a reset asked for
+//     in the app finishes in the app, where the one-time key Supabase checks is kept
 function returnAddress(): string {
     const join = read(JOIN_KEY);
-    const here = isNative ? WEB_ADDRESS : location.origin + location.pathname;
+    const here = isNative ? APP_LINK : location.origin + location.pathname;
     return here + (join ? "?join=" + join : "");
+}
+
+// An email link opened the app (agave://auth?code=...):
+//     carry any invite code, then trade the link's code for a sign-in
+//     (a reset link then shows "set a new password", same as on the website)
+//     IF the link was already used or is too old -> say so on the sign-in screen
+async function openedFromAppLink(link: URL) {
+    const join = link.searchParams.get("join");
+    if (join && /^[0-9a-f]{64}$/.test(join)) write(JOIN_KEY, join);
+    const failed = link.searchParams.get("error_description");
+    if (failed) {
+        set({ notice: friendly(failed) });
+        return;
+    }
+    const code = link.searchParams.get("code");
+    if (!code) return;
+    const { error } = await supabase!.auth.exchangeCodeForSession(code);
+    if (error) set({ notice: "That link didn't work. It may have been used already, or it's over an hour old. Ask for a new one." });
 }
 
 export async function signIn(email: string, password: string): Promise<string | null> {

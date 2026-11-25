@@ -53,6 +53,7 @@ beforeAll(async () => {
     await db.exec(readFileSync(new URL("./scanning.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./recipe-scanning.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./team-links.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("./feedback.sql", import.meta.url), "utf8"));
     await db.exec(`
         insert into auth.users values
             ('${OWNER}', 'owner@bar.com', now()),
@@ -261,5 +262,34 @@ describe("invite links", () => {
         const old = (await as(OWNER, "select public.make_invite_link($1) as code", [barId])).rows[0].code as string;
         await db.exec(`update public.invite_links set expires_at = now() - interval '1 minute' where code = '${old}'`);
         await expect(as(NEWBIE2, "select public.join_with_link($1)", [old])).rejects.toThrow(/doesn't work anymore/);
+    });
+});
+
+describe("feedback", () => {
+    test("anyone signed in can send it; nobody can read it from the app", async () => {
+        const sent = await as(STAFF, "select public.send_feedback('idea', '  Add a par level per bottle  ', '/recipes', 'iPhone app', $1) as id", [barId]);
+        expect(sent.rows[0].id).toBeTruthy();
+        const row = (await db.query<Record<string, unknown>>("select user_id, email, bar_id, kind, message, page, app from public.feedback")).rows[0];
+        expect(row).toEqual({ user_id: STAFF, email: "staff@bar.com", bar_id: barId, kind: "idea", message: "Add a par level per bottle", page: "/recipes", app: "iPhone app" });
+
+        // one-way box: not even the sender, nor the owner, can read or write it directly
+        expect((await as(STAFF, "select * from public.feedback").catch(() => ({ rows: "blocked" }))).rows).toBe("blocked");
+        await expect(as(OWNER, "select * from public.feedback")).rejects.toThrow();
+        await expect(as(OWNER, "insert into public.feedback (kind, message) values ('idea', 'x')")).rejects.toThrow();
+        await expect(as(null, "select public.send_feedback('idea', 'hi')")).rejects.toThrow();
+    });
+
+    test("a place they don't belong to is dropped, and junk is refused", async () => {
+        await as(STRANGER, "select public.send_feedback('problem', 'Camera won''t open', null, null, $1)", [barId]);
+        const row = (await db.query<Record<string, unknown>>("select bar_id from public.feedback where user_id = $1", [STRANGER])).rows[0];
+        expect(row.bar_id).toBeNull();
+        await expect(as(STRANGER, "select public.send_feedback('rant', 'x')")).rejects.toThrow(/Pick idea/);
+        await expect(as(STRANGER, "select public.send_feedback('idea', '   ')")).rejects.toThrow(/Write a message/);
+    });
+
+    test("20 a day per person", async () => {
+        for (let i = 0; i < 19; i++) await as(STRANGER, "select public.send_feedback('other', $1)", ["note " + i]);
+        await expect(as(STRANGER, "select public.send_feedback('other', 'one more')")).rejects.toThrow(/20 messages today/);
+        await as(OWNER, "select public.send_feedback('other', 'still fine for someone else')");
     });
 });

@@ -107,3 +107,38 @@ Review usually takes a day or two. If they reject it, the message says why: send
 - **Square** connects through Safari and comes back to the website; the app picks it up after.
 - **Push notifications** ("invoice ready to approve").
 - **Android** (Google Play): the same setup with `@capacitor/android`.
+
+
+## Email links open the app
+
+Sign-up confirmations and password resets asked for **in the iPhone app** come back to the
+app (`agave://auth`), so the reset finishes where it started. Supabase only sends people to
+addresses it trusts, so add it once:
+
+Supabase > **Authentication** > **URL Configuration** > **Redirect URLs** > **Add URL**: `agave://auth`
+
+Links asked for on the website still go to the website. A reset link has to be opened on the
+same phone or browser that asked for it, within an hour; Agave says so if it isn't.
+
+
+## Feedback
+
+**Send feedback** (profile menu) saves the message and emails it to getagaveapp@gmail.com.
+Hit Reply to answer the tester. One-time setup:
+
+1. SQL Editor: run `supabase/feedback.sql`.
+2. Make a free account at **resend.com** with **getagaveapp@gmail.com** (it may only email
+   the address it was made with until you add a domain, and that's exactly where these go).
+3. Resend > **API Keys** > **Create API Key** (Sending access). Copy it.
+4. Supabase > **Edge Functions** > **Secrets** > add `RESEND_API_KEY` = that key.
+   Never paste it into chat, the code, or GitHub.
+5. Terminal: `npx supabase functions deploy send-feedback --remote=vqzfshvnawcmifkzbrey --use-api`
+
+Without the key, messages are still saved (Table Editor > feedback), just not emailed.
+
+**TestFlight testers** can also send a marked-up screenshot; the feedback screen in the app
+shows them how. Those land in App Store Connect > your app > TestFlight > **Feedback**.
+For the build's **What to Test**:
+
+> Thanks for testing Agave! Found a problem? Take a screenshot, tap the preview, mark it up,
+> tap Done, then Share Beta Feedback. Ideas or anything else: profile menu > Send feedback.

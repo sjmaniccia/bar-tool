@@ -1118,3 +1118,22 @@ button.danger.solid:disabled { opacity: 0.5; }
 .native body { overscroll-behavior: none; }
 .native button, .native a { -webkit-touch-callout: none; }
 .auth-legal { text-align: center; margin: 14px 0 0; }
+
+/* Send feedback: idea / problem / something else, then the message */
+.feedback-card { display: grid; gap: 14px; }
+.segmented { display: inline-flex; gap: 4px; padding: 4px; border-radius: 12px; background: var(--surface-2); justify-self: start; flex-wrap: wrap; }
+.segmented button { background: transparent; color: var(--text); border: 0; padding: 7px 14px; border-radius: 9px; font-weight: 500; }
+.segmented button:hover { background: var(--hover); }
+.segmented button.on { background: var(--surface); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); font-weight: 600; }
+.feedback-message { display: grid; gap: 6px; }
+.feedback-message textarea { width: 100%; min-height: 150px; resize: vertical; font: inherit; }
+a.button.disabled { opacity: 0.5; pointer-events: none; }
+
+/* A one-time message on the sign-in screens, like "that link didn't work" */
+.auth-notice { display: flex; gap: 10px; align-items: flex-start; justify-content: space-between; padding: 10px 12px; margin-bottom: 12px; border-radius: 10px; background: var(--danger-soft); color: var(--text); font-size: 0.9rem; }
+.auth-notice .link-button { font-size: 1.1rem; line-height: 1; padding: 0 2px; }
+
+/* "send a screenshot" tip on the feedback page (iPhone app only) */
+.testflight-tip { margin-top: 14px; }
+.testflight-tip h2 { font-size: 1rem; margin: 0 0 8px; }
+.testflight-tip ol { margin: 0 0 8px; padding-left: 20px; display: grid; gap: 4px; }

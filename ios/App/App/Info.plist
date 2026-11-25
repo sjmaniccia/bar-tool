@@ -72,5 +72,16 @@
 	<string>Agave reads photos you pick of invoices and recipe pages.</string>
 	<key>ITSAppUsesNonExemptEncryption</key>
 	<false/>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.getagaveapp.agave</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>agave</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

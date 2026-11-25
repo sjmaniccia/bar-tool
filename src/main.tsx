@@ -52,6 +52,7 @@ import Classics from "./pages/Classics";
 import SpecBooks from "./pages/SpecBooks";
 import Team from "./pages/Team";
 import Account from "./pages/Account";
+import Feedback from "./pages/Feedback";
 import { startSession } from "./cloud/session";
 import NotFound from "./pages/NotFound";
 // The font is bundled with the app (no outside requests): DM Sans for everything
@@ -114,6 +115,7 @@ const router = createHashRouter([
             { path: "specs", element: <SpecBooks /> },
             { path: "team", element: <Team /> },
             { path: "account", element: <Account /> },
+            { path: "feedback", element: <Feedback /> },
             { path: "*", element: <NotFound /> }
         ]
     }

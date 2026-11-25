@@ -5,7 +5,7 @@
 import { PRIVACY_URL } from "../native";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
-    createBar, hasDeviceData, pendingJoinCode, sendPasswordReset, setNewPassword, signIn, signOut, signUp,
+    clearNotice, createBar, hasDeviceData, pendingJoinCode, sendPasswordReset, setNewPassword, signIn, signOut, signUp,
     startDemo, useSession, type StartWith
 } from "../cloud/session";
 import { peekInviteLink } from "../cloud/team";
@@ -13,11 +13,19 @@ import { supabase } from "../cloud/client";
 import { BrandMark } from "../components/BrandMark";
 
 // The card every screen sits in
+//     a one-time notice (like "that link didn't work") shows at the top until dismissed
 function AuthCard({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
+    const { notice } = useSession();
     return (
         <div className="auth-page">
             <div className="auth-card">
                 <div className="auth-brand"><BrandMark />Agave</div>
+                {notice && (
+                    <div className="auth-notice" role="status">
+                        <span>{notice}</span>
+                        <button type="button" className="link-button" aria-label="Dismiss" onClick={clearNotice}>×</button>
+                    </div>
+                )}
                 <h1>{title}</h1>
                 {subtitle && <p className="muted">{subtitle}</p>}
                 {children}
