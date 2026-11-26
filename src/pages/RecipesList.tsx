@@ -65,12 +65,10 @@ export default function RecipesList() {
             </div>
 
             <div className="toolbar">
-                <input
-                    type="search"
-                    placeholder="Search recipes…"
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                />
+                <label className="search-box">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
+                    <input type="search" aria-label="Search recipes" value={search} onChange={(e) => setSearch(e.target.value)} />
+                </label>
                 {!recipesOnly && <label className="inline-label">
                     Sort
                     <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>

@@ -1179,3 +1179,28 @@ a.button.disabled { opacity: 0.5; pointer-events: none; }
 .menu-dish { display: flex; align-items: center; }
 .menu-dish > a { flex: 1; min-width: 0; }
 .menu-dish-actions { display: flex; gap: 4px; padding-right: 12px; }
+
+/* Recipe name, edited right in the title */
+.title-edit { margin: 0; }
+.title-input { font: inherit; color: inherit; letter-spacing: inherit; width: 100%; max-width: 640px; padding: 0 6px; margin-left: -7px; border: 1px solid transparent; border-radius: 8px; background: transparent; }
+.title-input:hover { border-color: var(--border); }
+.title-input:focus { border-color: var(--input-border); background: var(--surface); outline: none; }
+
+/* An empty recipe picture: the box is the camera button */
+label.recipe-photo.empty { cursor: pointer; }
+label.recipe-photo.empty:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Search: just a magnifying glass */
+.search-box { position: relative; display: flex; align-items: center; flex: 1; max-width: 380px; }
+.search-box svg { position: absolute; left: 11px; color: var(--muted); pointer-events: none; }
+.search-box input { width: 100%; padding-left: 36px; }
+.app-open { display: block; width: fit-content; margin-top: 10px; }
+
+/* Invite QR: tap for full screen, so another phone's camera reads it easily */
+.qr-button { display: grid; justify-items: center; gap: 4px; background: none; border: none; padding: 0; cursor: zoom-in; }
+.qr-full { position: fixed; inset: 0; z-index: 1000; background: #fff; color: #1c1c1a; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); text-align: center; }
+.qr-full img { width: min(88vw, 70vh); height: auto; image-rendering: pixelated; }
+.qr-full strong { font-size: 1.3rem; }
+.qr-full span { color: #5a5a55; }
+.qr-full button { margin-top: 8px; }
+.title-input { display: block; resize: none; overflow: hidden; line-height: 1.15; font-weight: inherit; }

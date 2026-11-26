@@ -5,17 +5,20 @@
 //     Owners can switch to a manager link; managers make staff links only
 //     "Text it": the phone's share sheet (Messages, WhatsApp...) or, on a computer, copy
 //     "New link": turns the old one off right away (if the QR code got photographed somewhere)
+//     Tap the QR code: it fills the screen, easy for another phone's camera to read.
+//     Tap anywhere to put it back. fullAtStart: open it that way (the Invite button's sheet).
 // Links work for 14 days and 50 people (team-links.sql).
 // A "Just recipes" place: one kind of link (manager = "Family": add recipes, change their own).
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
+import { createPortal } from "react-dom";
 import { useSession } from "../cloud/session";
 import { inviteLinkFor, replaceInviteLink, type InviteLink } from "../cloud/team";
 import type { Role } from "../cloud/sync";
 import { useRecipesOnly } from "../data/place";
 
-export default function InviteCard({ compact = false }: { compact?: boolean }) {
+export default function InviteCard({ compact = false, fullAtStart = false }: { compact?: boolean; fullAtStart?: boolean }) {
     const session = useSession();
     const barId = session.mode === "ready" ? session.bar?.id ?? null : null;
     const isOwner = session.bar?.role === "owner";
@@ -26,6 +29,8 @@ export default function InviteCard({ compact = false }: { compact?: boolean }) {
     const [qr, setQr] = useState("");
     const [error, setError] = useState("");
     const [copied, setCopied] = useState(false);
+    const [full, setFull] = useState(false);
+    const [shownFull, setShownFull] = useState(false);     // fullAtStart happens once
 
     // Get (or make) the link for the chosen role, then draw it
     useEffect(() => {
@@ -43,8 +48,23 @@ export default function InviteCard({ compact = false }: { compact?: boolean }) {
 
     useEffect(() => {
         if (!link) return;
-        void QRCode.toDataURL(link.url, { margin: 1, width: 360, color: { dark: "#1c1c1a", light: "#ffffff" } }).then(setQr);
+        void QRCode.toDataURL(link.url, { margin: 1, width: 720, color: { dark: "#1c1c1a", light: "#ffffff" } }).then(setQr);
     }, [link]);
+
+    useEffect(() => {
+        if (fullAtStart && qr && !shownFull) {
+            setFull(true);
+            setShownFull(true);
+        }
+    }, [fullAtStart, qr, shownFull]);
+
+    // Escape puts it back too
+    useEffect(() => {
+        if (!full) return;
+        const key = (e: KeyboardEvent) => { if (e.key === "Escape") setFull(false); };
+        window.addEventListener("keydown", key);
+        return () => window.removeEventListener("keydown", key);
+    }, [full]);
 
     if (!barId) {
         return <p className="muted">Sign in to invite your team. The demo stays on this device.</p>;
@@ -85,7 +105,12 @@ export default function InviteCard({ compact = false }: { compact?: boolean }) {
             )}
             <div className="invite-body">
                 <div className="invite-qr">
-                    {qr ? <img src={qr} alt={"QR code to join " + session.bar?.name + " as " + role} /> : <span className="muted small">{error ? "" : "Making a link…"}</span>}
+                    {qr ? (
+                        <button type="button" className="qr-button" aria-label="Show the QR code full screen" onClick={() => setFull(true)}>
+                            <img src={qr} alt={"QR code to join " + session.bar?.name} />
+                            <span className="muted small">Tap to make it bigger</span>
+                        </button>
+                    ) : <span className="muted small">{error ? "" : "Making a link…"}</span>}
                 </div>
                 <div className="invite-copy">
                     <strong>Pass your phone around</strong>
@@ -108,6 +133,15 @@ export default function InviteCard({ compact = false }: { compact?: boolean }) {
                 {link && <button className="secondary" onClick={() => void fresh()}>New link</button>}
             </div>
             {link && <p className="muted small invite-foot">Works for 14 days{link.uses > 0 ? " · " + link.uses + " joined with it" : ""}.</p>}
+            {full && qr && createPortal(
+                <div className="qr-full" role="dialog" aria-modal="true" aria-label="QR code to join" onClick={() => setFull(false)}>
+                    <img src={qr} alt={"QR code to join " + session.bar?.name} />
+                    <strong>Join {session.bar?.name}</strong>
+                    <span>Point your phone's camera here</span>
+                    <button type="button" className="secondary">Done</button>
+                </div>,
+                document.body
+            )}
         </div>
     );
 }

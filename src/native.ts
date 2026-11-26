@@ -7,7 +7,9 @@
 //     startNative     hide the splash screen, match the status bar to light/dark mode
 //     tap             a real haptic tap (iPhones ignore the browser's vibrate)
 // In a browser every function here does nothing.
-// FIXME: universal links (https links that open the app), so invite links shared by text open it too
+// Invite links are website links (https://…?join=…): any phone can open them. On an iPhone
+// the page offers "Open in the Agave app", an agave://join link.
+// FIXME: universal links (https links that open the app straight away)
 
 import { Capacitor } from "@capacitor/core";
 import { App } from "@capacitor/app";

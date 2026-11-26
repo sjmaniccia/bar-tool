@@ -2,13 +2,16 @@
 // The screens before the app: sign in, create an account, reset a password,
 // and set up a bar. They share one centered card with the Agave seal.
 
-import { PRIVACY_URL } from "../native";
+import { isNative, PRIVACY_URL } from "../native";
+
+// iPhones and iPads (iPadOS says "Macintosh" but has a touch screen)
+const onIPhone = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.userAgent.includes("Macintosh") && navigator.maxTouchPoints > 1);
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
     clearNotice, createBar, hasDeviceData, pendingJoinCode, sendPasswordReset, setNewPassword, signIn, signOut, signUp,
     startDemo, useSession, type StartWith
 } from "../cloud/session";
-import { peekInviteLink, setMyName } from "../cloud/team";
+import { appJoinUrl, peekInviteLink, setMyName } from "../cloud/team";
 import { reloadNames } from "../cloud/names";
 import { supabase } from "../cloud/client";
 import { BrandMark } from "../components/BrandMark";
@@ -117,6 +120,9 @@ export function SignInScreen() {
                         ? <>You're joining the <strong>{joining.barName}</strong> recipe book.</>
                         : <>You're joining <strong>{joining.barName}</strong> as {joining.role === "manager" ? "a manager" : "staff"}.</>}
                     {tab === "up" ? " Make an account to get in." : " Sign in to get in."}
+                    {onIPhone && !isNative && joinCode && (
+                        <a className="button secondary app-open" href={appJoinUrl(joinCode)}>Have the app? Open it there</a>
+                    )}
                 </div>
             )}
             {joining === "bad" && <p className="error" role="alert">That invite link doesn't work anymore. Ask for a new one.</p>}

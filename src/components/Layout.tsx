@@ -231,7 +231,7 @@ export default function Layout() {
             {sheet === "actions" && <ActionSheet staff={staff} recipesOnly={recipesOnly} canInvite={canInvite} onInvite={() => setSheet("invite")} onClose={() => setSheet(null)} />}
             {sheet === "invite" && (
                 <Sheet title={recipesOnly ? "Invite family" : "Invite your team"} onClose={() => setSheet(null)}>
-                    <InviteCard compact />
+                    <InviteCard compact fullAtStart />
                 </Sheet>
             )}
         </div>

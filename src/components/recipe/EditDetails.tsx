@@ -1,7 +1,8 @@
 // ===== EditDetails.tsx =====
-// The "Edit details" form at the top of a recipe: name, type, yield, menu price,
+// The "Edit details" form at the top of a recipe: type, yield, menu price,
 // what it makes, and the training details (glass, garnish, description, directions).
-// A "Just recipes" place: name, serves, notes and directions only.
+// A "Just recipes" place: serves, notes and directions only.
+// The name isn't here: it's edited in the page title (RecipeTitle.tsx).
 
 import { useState, type FormEvent } from "react";
 import type { Recipe, RecipeType } from "../../data/types";
@@ -48,7 +49,6 @@ export default function EditDetails({ recipe, onDone, recipesOnly = false }: Pro
         event.preventDefault();
         const yieldAmount = parseAmount(form.yieldAmount);
         const menuPrice = form.menuPrice.trim() === "" ? null : parseFloat(form.menuPrice);
-        if (form.name.trim() === "") return setError("Give the recipe a name.");
         if (isNaN(yieldAmount) || yieldAmount <= 0) return setError(recipesOnly ? "Enter how many it serves, like 4." : "Enter how much it makes, like 1 or 1 1/2.");
         if (menuPrice !== null && (isNaN(menuPrice) || menuPrice < 0)) return setError("Enter a valid menu price, or leave it blank.");
 
@@ -62,7 +62,6 @@ export default function EditDetails({ recipe, onDone, recipesOnly = false }: Pro
         }
 
         updateRecipe(recipe.id, {
-            name: form.name.trim(),
             type: form.type as RecipeType,
             yieldAmount,
             yieldUnit: recipesOnly ? "serving" : form.yieldUnit,
@@ -80,9 +79,6 @@ export default function EditDetails({ recipe, onDone, recipesOnly = false }: Pro
         <form className="card edit-form" onSubmit={save}>
             <h2>Edit details</h2>
             <div className="form-grid">
-                <label className="span-2">Name
-                    <input value={form.name} onChange={(e) => set("name", e.target.value)} autoFocus />
-                </label>
                 {recipesOnly ? (
                     <label>Serves
                         <input value={form.yieldAmount} inputMode="decimal" onChange={(e) => set("yieldAmount", e.target.value)} />

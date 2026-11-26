@@ -147,7 +147,7 @@ async function signedIn(user: User) {
     if (joinedBar) {
         write(BAR_KEY, joinedBar);
         const bar = bars.find((b) => b.id === joinedBar);
-        if (bar) set({ notice: "You joined " + bar.name + ". Welcome to the team." });
+        if (bar) set({ notice: "You joined " + bar.name + (bar.recipeBook ? ". Welcome!" : ". Welcome to the team.") });
     }
     const saved = bars.find((b) => b.id === read(BAR_KEY)) ?? bars[0] ?? null;
     if (saved === null) {
@@ -281,7 +281,15 @@ function returnAddress(): string {
 //     IF the link was already used or is too old -> say so on the sign-in screen
 async function openedFromAppLink(link: URL) {
     const join = link.searchParams.get("join");
-    if (join && /^[0-9a-f]{64}$/.test(join)) write(JOIN_KEY, join);
+    if (join && /^[0-9a-f]{64}$/.test(join)) {
+        write(JOIN_KEY, join);
+        // An invite opened in the app while signed in: join right away
+        if (link.host === "join" && session.userId) {
+            const { data } = await supabase!.auth.getUser();
+            if (data.user) await signedIn(data.user);
+            return;
+        }
+    }
     const failed = link.searchParams.get("error_description");
     if (failed) {
         set({ notice: friendly(failed) });

@@ -4,6 +4,7 @@
 
 import { supabase } from "./client";
 import { refreshBars, rememberMyName } from "./session";
+import { isNative, WEB_ADDRESS } from "../native";
 import type { Role } from "./sync";
 
 export interface Member {
@@ -100,9 +101,19 @@ export interface InviteLink {
     uses: number;
 }
 
-// Where a link points: this app, with ?join=<code>
+// Where a link points: the website, with ?join=<code>
+//     In the iPhone app the page's own address is capacitor://localhost, which isn't a link
+//     anywhere else (Messages shows it as plain text, the camera can't read the QR code),
+//     so links made in the app point to the website. On an iPhone that page offers
+//     "Open in the Agave app" (agave://join?join=<code>).
 export function linkUrl(code: string): string {
-    return location.origin + location.pathname + "?join=" + code;
+    const site = isNative ? WEB_ADDRESS : location.origin + location.pathname;
+    return site + "?join=" + code;
+}
+
+// The same invite, opening the iPhone app instead of the website
+export function appJoinUrl(code: string): string {
+    return "agave://join?join=" + code;
 }
 
 // The newest working link for a role, or a new one -> the link, or an error message

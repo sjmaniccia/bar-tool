@@ -20,6 +20,7 @@ import IngredientsTable from "../components/recipe/IngredientsTable";
 import AmountInput from "../components/AmountInput";
 import RecipePhoto from "../components/recipe/RecipePhoto";
 import RecipeLines from "../components/recipe/RecipeLines";
+import RecipeTitle from "../components/recipe/RecipeTitle";
 import { useRecipesOnly } from "../data/place";
 import { useMyName, useRecipeRights } from "../cloud/names";
 import { nameOf } from "../cloud/team";
@@ -93,7 +94,7 @@ export default function RecipeDetail() {
                 <div className="recipe-title">
                     <RecipePhoto recipe={recipe} />
                     <div>
-                    <h1>{recipe.name}</h1>
+                    <RecipeTitle recipe={recipe} />
                     <div className="tags">
                         <span className="tag">{recipe.type}</span>
                         {makes && <span className="tag house">makes {makes.name}</span>}
@@ -208,7 +209,7 @@ function FamilyRecipe({ recipe, lines, editing, setEditing, remove }: FamilyProp
                 <div className="recipe-title">
                     <RecipePhoto recipe={recipe} readOnly={!canEdit} />
                     <div>
-                        <h1>{recipe.name}</h1>
+                        <RecipeTitle recipe={recipe} readOnly={!canEdit} />
                         {sub && <p className="muted">{sub}</p>}
                     </div>
                 </div>

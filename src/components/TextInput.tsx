@@ -15,9 +15,10 @@ interface Props {
     ariaLabel?: string;
     disabled?: boolean;
     list?: string;          // id of a <datalist> of suggestions
+    autoFocus?: boolean;    // start typing in it (a brand-new recipe's name)
 }
 
-export default function TextInput({ value, onSave, placeholder, required = false, multiline = false, type = "text", className, ariaLabel, disabled, list }: Props) {
+export default function TextInput({ value, onSave, placeholder, required = false, multiline = false, type = "text", className, ariaLabel, disabled, list, autoFocus }: Props) {
     const [text, setText] = useState(value);
 
     // WHEN the saved value changes elsewhere, show it
@@ -43,6 +44,7 @@ export default function TextInput({ value, onSave, placeholder, required = false
     }
     return (
         <input type={type} className={className} value={text} placeholder={placeholder} aria-label={ariaLabel} disabled={disabled} list={list}
+            autoFocus={autoFocus} onFocus={autoFocus ? (e) => e.target.select() : undefined}
             onChange={(e) => setText(e.target.value)}
             onBlur={save}
             onKeyDown={(e) => { if (e.key === "Enter") (e.target as HTMLInputElement).blur(); }} />
