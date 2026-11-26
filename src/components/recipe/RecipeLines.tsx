@@ -17,6 +17,7 @@ import { PURCHASE_UNITS } from "../../data/units";
 import { addLine, getOrCreateIngredient, removeLine, updateLine } from "../../data/actions";
 import { lineText, unitLabel } from "../../data/lineText";
 import AmountInput from "../AmountInput";
+import PencilIcon from "../PencilIcon";
 
 // The name a line shows: its ingredient, or the sub-recipe it uses
 function nameOf(line: RecipeLine): string {
@@ -59,7 +60,7 @@ function LineItem({ line, open, readOnly, onToggle }: { line: RecipeLine; open: 
         <li className={"recipe-scan-line" + (open ? " open" : "")}>
             <div className="recipe-scan-line-row">
                 <span className="recipe-scan-line-text">{lineText(shown, name || "?")}</span>
-                {!readOnly && <button type="button" className="pencil no-print" aria-label={"Edit " + name} aria-expanded={open} onClick={onToggle}>✎</button>}
+                {!readOnly && <button type="button" className="pencil no-print" aria-label={"Edit " + name} aria-expanded={open} onClick={onToggle}><PencilIcon /></button>}
             </div>
             {open && !readOnly && (
                 <div className="line-editor no-print">

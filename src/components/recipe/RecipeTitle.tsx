@@ -17,12 +17,19 @@ export default function RecipeTitle({ recipe, readOnly = false }: { recipe: Reci
     // WHEN the name changes elsewhere, show it
     useEffect(() => setText(recipe.name), [recipe.name]);
 
-    // Grow to fit every line of the name
+    // Grow to fit every line of the name, again whenever its width changes
     useEffect(() => {
         const el = box.current;
         if (!el) return;
-        el.style.height = "auto";
-        el.style.height = el.scrollHeight + "px";
+        const fit = () => {
+            el.style.height = "auto";
+            el.style.height = el.scrollHeight + "px";
+        };
+        fit();
+        const watch = new ResizeObserver(fit);
+        watch.observe(el);
+        void document.fonts?.ready.then(fit);
+        return () => watch.disconnect();
     }, [text]);
 
     // A new recipe: ready to type its name

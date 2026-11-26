@@ -376,6 +376,18 @@ describe("Just recipes places have no staff", () => {
         expect(left.rows).toEqual([{ id: "i1" }]);
     });
 
+    test("private grocery lists are only seen by whoever made them", async () => {
+        const put = (who: string, kind: string, id: string, data: object) => as(who,
+            "insert into public.records (bar_id, kind, id, data) values ($1, $2, $3, $4)", [fam, kind, id, JSON.stringify(data)]);
+        await put(AUNT, "groceryLists", "mine", { id: "mine", name: "My week", createdBy: AUNT, shared: false });
+        await put(AUNT, "groceryItems", "g1", { id: "g1", listId: "mine", name: "Eggs", createdBy: AUNT, shared: false });
+        await put(AUNT, "groceryLists", "tg", { id: "tg", name: "Thanksgiving", createdBy: AUNT, shared: true });
+        const seen = async (who: string) => (await as(who, "select id from public.records where bar_id = $1 and kind like 'grocery%' order by id", [fam])).rows.map((r) => r.id);
+        expect(await seen(AUNT)).toEqual(["g1", "mine", "tg"]);
+        expect(await seen(COUSIN)).toEqual(["tg"]);
+        expect(await seen(COOK)).toEqual(["tg"]);
+    });
+
     test("the name from sign-up is used when joining", async () => {
         const NEWCOMER = "00000000-0000-0000-0000-0000000000f4";
         await db.exec(`insert into auth.users values ('${NEWCOMER}', 'grandpa@home.com', now(), '{"name":" Grandpa "}')`);

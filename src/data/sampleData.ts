@@ -200,6 +200,8 @@ export function sampleData(): Database {
             { id: "w-1", date: "2026-11-12", kind: "product", formatId: "f-tequila", recipeId: null, quantity: 1, reason: "breakage", note: "Dropped during restock" },
             { id: "w-2", date: "2026-11-14", kind: "recipe", formatId: null, recipeId: "r-daiquiri", quantity: 3, reason: "comp", note: "Birthday table" }
         ],
-        placeSettings: []
+        placeSettings: [],
+        groceryLists: [],
+        groceryItems: []
     };
 }

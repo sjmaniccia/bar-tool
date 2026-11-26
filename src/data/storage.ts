@@ -35,7 +35,9 @@ export function emptyData(): Database {
         invoiceItemLinks: [],
         invoiceCharges: [],
         wasteEntries: [],
-        placeSettings: []
+        placeSettings: [],
+        groceryLists: [],
+        groceryItems: []
     };
 }
 

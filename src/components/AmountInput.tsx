@@ -15,9 +15,10 @@ interface Props {
     placeholder?: string;
     className?: string;
     ariaLabel?: string;
+    autoFocus?: boolean;
 }
 
-export default function AmountInput({ value, onSave, allowBlank = false, money = false, allowNegative = false, placeholder, className, ariaLabel }: Props) {
+export default function AmountInput({ value, onSave, allowBlank = false, money = false, allowNegative = false, placeholder, className, ariaLabel, autoFocus }: Props) {
     const shown = value === null ? "" : money ? value.toFixed(2) : formatFraction(value);
     const [text, setText] = useState(shown);
 
@@ -48,6 +49,7 @@ export default function AmountInput({ value, onSave, allowBlank = false, money =
         <input
             type="text"
             inputMode="decimal"
+            autoFocus={autoFocus}
             className={className}
             value={text}
             placeholder={placeholder}

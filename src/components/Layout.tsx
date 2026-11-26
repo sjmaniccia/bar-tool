@@ -93,8 +93,8 @@ const FAMILY_SECTIONS: Section[] = [
     MANAGER_SECTIONS[0],
     {
         id: "recipes", label: "Recipes", to: "/recipes", icon: ICONS.recipes,
-        pages: [{ to: "/recipes", label: "All recipes" }, { to: "/menus", label: "Menus" }],
-        match: ["/recipes", "/menus"]
+        pages: [{ to: "/recipes", label: "All recipes" }, { to: "/menus", label: "Menus" }, { to: "/groceries", label: "Groceries" }],
+        match: ["/recipes", "/menus", "/groceries"]
     }
 ];
 

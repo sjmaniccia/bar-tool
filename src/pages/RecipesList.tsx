@@ -1,6 +1,7 @@
 // ===== RecipesList.tsx =====
 // All recipes in a table: search, sort, and click a row to open it.
 // A "Just recipes" place: a plain list instead (picture, name, serves), A to Z, no costs.
+//     Select -> tick recipes -> "Grocery list" makes one list from them (Groceries.tsx)
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -10,6 +11,7 @@ import { createRecipe } from "../data/actions";
 import { formatFraction, formatMoney, formatPercent } from "../data/utils";
 import { useRecipesOnly } from "../data/place";
 import { useMemberNames } from "../cloud/names";
+import { CART_ICON, Icon } from "./Groceries";
 import type { Recipe } from "../data/types";
 
 type SortKey = "name" | "type" | "cost" | "ingredientRatio" | "profit";
@@ -30,6 +32,12 @@ export default function RecipesList() {
     const [sort, setSortKey] = useState<SortKey>("name");
     const recipesOnly = useRecipesOnly();
     const names = useMemberNames();
+    const [picked, setPicked] = useState<Set<string> | null>(null);     // null = not selecting
+    const togglePick = (id: string) => {
+        const next = new Set(picked);
+        if (next.has(id)) next.delete(id); else next.add(id);
+        setPicked(next);
+    };
     const sortKey: SortKey = recipesOnly ? "name" : sort;
 
     // Each recipe with its summary, filtered by the search box
@@ -69,6 +77,9 @@ export default function RecipesList() {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
                     <input type="search" aria-label="Search recipes" value={search} onChange={(e) => setSearch(e.target.value)} />
                 </label>
+                {recipesOnly && db.recipes.length > 0 && (
+                    <button className="secondary" onClick={() => setPicked(picked ? null : new Set())}>{picked ? "Cancel" : "Select"}</button>
+                )}
                 {!recipesOnly && <label className="inline-label">
                     Sort
                     <select value={sortKey} onChange={(e) => setSortKey(e.target.value as SortKey)}>
@@ -91,7 +102,14 @@ export default function RecipesList() {
                 </section>
             ) : recipesOnly ? (
                 <ul className="card recipe-plain-list">
-                    {rows.map(({ recipe }) => (
+                    {rows.map(({ recipe }) => picked ? (
+                        <li key={recipe.id}>
+                            <label className="recipe-pick">
+                                <input type="checkbox" checked={picked.has(recipe.id)} onChange={() => togglePick(recipe.id)} />
+                                <span className="recipe-plain-name"><strong>{recipe.name}</strong></span>
+                            </label>
+                        </li>
+                    ) : (
                         <li key={recipe.id}>
                             <Link to={"/recipes/" + recipe.id}>
                                 {recipe.photo
@@ -146,6 +164,15 @@ export default function RecipesList() {
                             ))}
                         </tbody>
                     </table>
+                </div>
+            )}
+            {recipesOnly && picked && (
+                <div className="pick-bar">
+                    <span>{picked.size} picked</span>
+                    <Link className={"button" + (picked.size === 0 ? " disabled" : "")} aria-disabled={picked.size === 0}
+                        to={picked.size === 0 ? "#" : "/groceries/new?recipes=" + [...picked].join(",")}>
+                        <Icon d={CART_ICON} size={18} /> Grocery list
+                    </Link>
                 </div>
             )}
         </div>

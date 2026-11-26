@@ -17,6 +17,7 @@ import type { Menu } from "../data/types";
 import { useMemberNames, useRecipeRights } from "../cloud/names";
 import { useSession } from "../cloud/session";
 import TextInput from "../components/TextInput";
+import { CART_ICON, Icon } from "./Groceries";
 
 // ===== All menus =====
 
@@ -101,6 +102,9 @@ export function FamilyMenuDetail({ menu }: { menu: Menu }) {
                     </p>
                     {menu.description && <p className="muted">{menu.description}</p>}
                 </div>
+                {items.length > 0 && (
+                    <Link className="button secondary" to={"/groceries/new?menu=" + menu.id}><Icon d={CART_ICON} size={18} /> Grocery list</Link>
+                )}
             </div>
 
             <ul className="card recipe-plain-list">

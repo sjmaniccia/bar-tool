@@ -8,6 +8,7 @@
 // notes and directions. No costs, yield/labor or training.
 
 import type { Recipe, RecipeLine } from "../data/types";
+import { useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useDb } from "../data/storage";
 import { findById, formatFraction, formatMoney } from "../data/utils";
@@ -21,6 +22,7 @@ import AmountInput from "../components/AmountInput";
 import RecipePhoto from "../components/recipe/RecipePhoto";
 import RecipeLines from "../components/recipe/RecipeLines";
 import RecipeTitle from "../components/recipe/RecipeTitle";
+import PencilIcon from "../components/PencilIcon";
 import { useRecipesOnly } from "../data/place";
 import { useMyName, useRecipeRights } from "../cloud/names";
 import { nameOf } from "../cloud/team";
@@ -83,7 +85,7 @@ export default function RecipeDetail() {
     }
 
     if (recipesOnly) {
-        return <FamilyRecipe recipe={recipe} lines={lines} editing={editing} setEditing={setEditing} remove={remove} />;
+        return <FamilyRecipe recipe={recipe} lines={lines} remove={remove} />;
     }
 
     return (
@@ -173,26 +175,36 @@ export default function RecipeDetail() {
 
 
 // ===== Just recipes =====
-// Serves and who added it, the lines, directions.
-// Mine (or I'm the owner): edit, delete, change the picture.
-// Someone else's: read it; at the bottom, "Make my version" (a copy that's mine) or Print.
+// Reads like a recipe card, and every part is edited where it sits:
+//     picture (camera)  name (the title)  "Serves 8" (tap it)        🖨 (print, top right)
+//     Ingredients  ✎ per line
+//     Directions   ✎
+//     Notes        ✎ (where it's from, tips)
+//     🗑 Delete recipe (at the very bottom)
+// Someone else's recipe: the same page with nothing to edit; at the bottom,
+// "Make my version" (a copy that's mine).
 interface FamilyProps {
     recipe: Recipe;
     lines: RecipeLine[];
-    editing: boolean;
-    setEditing: (on: boolean) => void;
     remove: () => void;
 }
 
-function FamilyRecipe({ recipe, lines, editing, setEditing, remove }: FamilyProps) {
+const PRINT_ICON = "M7 9V4h10v5 M7 17H5a1 1 0 0 1-1-1v-6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v6a1 1 0 0 1-1 1h-2 M7 14h10v6H7z";
+const TRASH_ICON = "M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3";
+
+function Icon({ d, size = 20 }: { d: string; size?: number }) {
+    return (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d={d} />
+        </svg>
+    );
+}
+
+function FamilyRecipe({ recipe, lines, remove }: FamilyProps) {
     const navigate = useNavigate();
     const session = useSession();
     const { canEdit, addedBy } = useRecipeRights(recipe);
     const myName = useMyName() || nameOf({ name: "", email: session.email });
-    const sub = [
-        recipe.yieldUnit === "serving" && recipe.yieldAmount > 1 && "Serves " + formatFraction(recipe.yieldAmount),
-        addedBy && "Added by " + addedBy
-    ].filter(Boolean).join(" · ");
 
     function myVersion() {
         const id = makeMyVersion(recipe.id, myName);
@@ -203,33 +215,38 @@ function FamilyRecipe({ recipe, lines, editing, setEditing, remove }: FamilyProp
     }
 
     return (
-        <div className="page recipe-page">
-            <Link to="/recipes" className="back no-print">← All recipes</Link>
-            <div className="page-header">
-                <div className="recipe-title">
-                    <RecipePhoto recipe={recipe} readOnly={!canEdit} />
-                    <div>
-                        <RecipeTitle recipe={recipe} readOnly={!canEdit} />
-                        {sub && <p className="muted">{sub}</p>}
-                    </div>
-                </div>
-                {canEdit && (
-                    <div className="button-row no-print">
-                        <button className="secondary" onClick={() => setEditing(true)}>Edit details</button>
-                        <button className="secondary" onClick={() => window.print()}>Print</button>
-                        <button className="danger" onClick={remove}>Delete</button>
-                    </div>
-                )}
+        <div className="page recipe-page family-recipe">
+            <div className="family-top no-print">
+                <Link to="/recipes" className="back">← All recipes</Link>
+                <button className="icon-button plain" aria-label="Print" title="Print" onClick={() => window.print()}><Icon d={PRINT_ICON} /></button>
             </div>
-            {editing && canEdit && <EditDetails recipe={recipe} recipesOnly onDone={() => setEditing(false)} />}
+            {/* With a picture: the picture big and centered, the name under it */}
+            <div className={"recipe-title" + (recipe.photo ? " with-picture" : "")}>
+                <RecipePhoto recipe={recipe} readOnly={!canEdit} />
+                <div>
+                    <RecipeTitle recipe={recipe} readOnly={!canEdit} />
+                    <p className="muted family-sub">
+                        <Serves recipe={recipe} canEdit={canEdit} />
+                        {addedBy && <span>Added by {addedBy}</span>}
+                    </p>
+                </div>
+            </div>
+
             <RecipeLines recipe={recipe} lines={lines} readOnly={!canEdit} />
-            <section className="card">
-                <h2>Directions</h2>
-                {recipe.directions ? <p className="directions">{recipe.directions}</p>
-                    : <p className="muted small">No directions yet.{canEdit ? " Add them with Edit details." : ""}</p>}
-                {recipe.description && <p className="muted">{recipe.description}</p>}
-            </section>
-            {!canEdit && (
+            <EditableCard title="Directions" value={recipe.directions} canEdit={canEdit} rows={8}
+                empty="+ Add directions" placeholder="Heat the oven to 350. Melt the butter…"
+                onSave={(directions) => updateRecipe(recipe.id, { directions })} className="directions" />
+            {(recipe.description || canEdit) && (
+                <EditableCard title="Notes" value={recipe.description} canEdit={canEdit} rows={3}
+                    empty="+ Add a note: where it's from, tips" placeholder="Grandma's, from the church cookbook. Double it for Thanksgiving."
+                    onSave={(description) => updateRecipe(recipe.id, { description })} />
+            )}
+
+            {canEdit ? (
+                <button className="link-button danger-link family-delete no-print" onClick={remove}>
+                    <Icon d={TRASH_ICON} size={16} /> Delete recipe
+                </button>
+            ) : (
                 <div className="recipe-bottom-actions no-print">
                     <p className="muted small">
                         {addedBy ? "This is " + addedBy + "'s recipe" : "Someone else added this recipe"}, so you can't change it.
@@ -237,10 +254,65 @@ function FamilyRecipe({ recipe, lines, editing, setEditing, remove }: FamilyProp
                     </p>
                     <div className="button-row">
                         <button onClick={myVersion}>Make my version</button>
-                        <button className="secondary" onClick={() => window.print()}>Print</button>
                     </div>
                 </div>
             )}
         </div>
+    );
+}
+
+// "Serves 8": tap to change it (a number box), Enter or tap away to save
+function Serves({ recipe, canEdit }: { recipe: Recipe; canEdit: boolean }) {
+    const [editing, setEditing] = useState(false);
+    const shown = recipe.yieldUnit === "serving" && recipe.yieldAmount > 1 ? "Serves " + formatFraction(recipe.yieldAmount) : "";
+    if (!canEdit) return shown ? <span>{shown}</span> : null;
+    if (editing) {
+        return (
+            <span className="serves-edit">Serves{" "}
+                <AmountInput value={recipe.yieldUnit === "serving" ? recipe.yieldAmount : null} allowBlank className="qty-input" ariaLabel="Serves" autoFocus
+                    onSave={(v) => { if (v !== null && v > 0) updateRecipe(recipe.id, { yieldAmount: v, yieldUnit: "serving" }); setEditing(false); }} />
+            </span>
+        );
+    }
+    return (
+        <button className="link-button serves-button" onClick={() => setEditing(true)}>
+            {shown || "+ How many it serves"}
+        </button>
+    );
+}
+
+// A card of text (directions, notes) with a pencil: tap it to edit in place, Done to save
+function EditableCard({ title, value, canEdit, empty, placeholder, rows, onSave, className = "" }: {
+    title: string; value: string; canEdit: boolean; empty: string; placeholder: string; rows: number;
+    onSave: (value: string) => void; className?: string;
+}) {
+    const [text, setText] = useState<string | null>(null);     // null = not editing
+    const editing = text !== null;
+    function done() {
+        if (text !== null && text.trim() !== value) onSave(text.trim());
+        setText(null);
+    }
+    return (
+        <section className="card editable-card">
+            <div className="editable-head">
+                <h2>{title}</h2>
+                {canEdit && !editing && value && (
+                    <button className="pencil no-print" aria-label={"Edit " + title.toLowerCase()} onClick={() => setText(value)}><PencilIcon /></button>
+                )}
+            </div>
+            {editing ? (
+                <div className="editable-body">
+                    <textarea rows={rows} value={text} placeholder={placeholder} autoFocus aria-label={title} onChange={(e) => setText(e.target.value)} />
+                    <div className="button-row">
+                        <button onClick={done}>Done</button>
+                        <button className="link-button" onClick={() => setText(null)}>Cancel</button>
+                    </div>
+                </div>
+            ) : value ? (
+                <p className={className}>{value}</p>
+            ) : canEdit ? (
+                <button className="link-button small no-print" onClick={() => setText("")}>{empty}</button>
+            ) : null}
+        </section>
     );
 }

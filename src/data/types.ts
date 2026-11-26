@@ -118,6 +118,31 @@ export interface RecipeLine {
 // How a place uses Agave (one row, id "place"; no row = the defaults)
 //     recipesOnly: a family's or home cook's recipes, with every costing, stock
 //     and sales part hidden. Turning it off later loses nothing.
+// ===== Grocery lists (recipe books) =====
+// A list made from recipes (or a menu), checked off in the store. Each list is either
+// shared with the whole recipe book or private to whoever made it (data/groceries.ts).
+
+export interface GroceryList {
+    id: string;
+    name: string;               // "Thanksgiving", "This week"
+    createdBy: string;          // who made it (an account id)
+    shared: boolean;            // everyone in the recipe book sees it, or only its maker
+}
+
+export interface GroceryItem {
+    id: string;
+    listId: string;
+    name: string;               // "Onion"
+    amount: number | null;      // null = no amount ("Salt and pepper")
+    unit: string;               // "cup", "each" (a count), "" with no amount
+    countWord: string;          // "clove" for "3 cloves garlic"
+    section: string;            // one of SECTIONS (data/groceries.ts)
+    checked: boolean;           // in the cart
+    forRecipes: string;         // "Stuffing, Green beans" (why it's on the list)
+    createdBy: string;
+    shared: boolean;            // a copy of its list's, so the server can keep private lists private
+}
+
 export interface PlaceSettings {
     id: string;
     recipesOnly: boolean;
@@ -307,4 +332,6 @@ export interface Database {
     invoiceItemLinks: InvoiceItemLink[];
     wasteEntries: WasteEntry[];
     placeSettings: PlaceSettings[];
+    groceryLists: GroceryList[];
+    groceryItems: GroceryItem[];
 }

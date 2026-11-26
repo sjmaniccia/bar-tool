@@ -26,6 +26,7 @@
 --     MENU ITEMS     adds a dish to any menu; takes off a dish they added, or any dish
 --                    from a menu they made
 -- The owner can change anything. Members' names ("Added by Mom") are in members.display_name.
+-- Grocery lists are shared with everyone, or private to whoever made them (read rule below).
 
 
 -- ===== Is this place just recipes? =====
@@ -266,6 +267,21 @@ $$;
 drop trigger if exists guard_family_recipes on public.records;
 create trigger guard_family_recipes before insert or update on public.records
     for each row execute function public.guard_family_recipes();
+
+
+-- ===== Grocery lists: shared, or private to whoever made it =====
+-- Everyone in a place reads its data, except grocery lists (and their items) marked
+-- private ("shared": false): only the person who made them sees those.
+
+drop policy if exists "members read data" on public.records;
+create policy "members read data" on public.records
+    for select to authenticated using (
+        public.my_role(bar_id) is not null
+        and (kind not in ('groceryLists', 'groceryItems')
+            or data is null
+            or coalesce((data ->> 'shared')::boolean, true)
+            or data ->> 'createdBy' = auth.uid()::text)
+    );
 
 
 -- ===== Names: "Added by Mom" =====

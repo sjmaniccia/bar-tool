@@ -29,6 +29,7 @@ import {
     type IngredientHow, type RecipeDraft, type RecipeDraftLine
 } from "../data/recipeScan";
 import { lineText, unitLabel } from "../data/lineText";
+import PencilIcon from "../components/PencilIcon";
 import { useRecipesOnly } from "../data/place";
 import { formatFraction, formatMoney } from "../data/utils";
 import type { Ingredient } from "../data/types";
@@ -356,7 +357,7 @@ function DraftCard({ draft: d, recipesOnly, ingredientOptions, onChange, onLine,
                     <span className="muted small">{sub}</span>
                 </div>
                 <button type="button" className="pencil" aria-label={"Edit " + d.name + " details"} aria-expanded={detailsOpen}
-                    onClick={() => onChange({ open: detailsOpen ? null : -1 })}>✎</button>
+                    onClick={() => onChange({ open: detailsOpen ? null : -1 })}><PencilIcon /></button>
             </div>
 
             {d.duplicateOf && (
@@ -447,7 +448,7 @@ function DraftLine({ line, open, recipesOnly, ingredientOptions, onToggle, onCha
                         onClick={onToggle}>unit?</button>
                 )}
                 {tag && <span className={tag.className} title={tag.title}>{tag.text}</span>}
-                <button type="button" className="pencil" aria-label={"Edit " + (name || "line")} aria-expanded={open} onClick={onToggle}>✎</button>
+                <button type="button" className="pencil" aria-label={"Edit " + (name || "line")} aria-expanded={open} onClick={onToggle}><PencilIcon /></button>
             </div>
             {open && (
                 <div className="line-editor">

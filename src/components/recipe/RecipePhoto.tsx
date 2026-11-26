@@ -51,12 +51,8 @@ export default function RecipePhoto({ recipe, readOnly = false }: { recipe: Reci
         dropIfUnused(old, recipe.id);
     }
 
-    const picker = (label: string) => (
-        <label className={"photo-pick" + (busy ? " busy" : "")}>
-            <input type="file" accept="image/*" hidden disabled={busy} onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }} />
-            {busy ? "Saving…" : label}
-        </label>
-    );
+    const CAMERA = <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"></path><circle cx="12" cy="13" r="3.5"></circle></svg>;
+    const TRASH = <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3"></path></svg>;
 
     if (readOnly) {
         return recipe.photo ? <div className="recipe-photo"><img src={recipe.photo} alt={"Picture of " + recipe.name} /></div> : null;
@@ -74,9 +70,13 @@ export default function RecipePhoto({ recipe, readOnly = false }: { recipe: Reci
     return (
         <div className="recipe-photo">
             <img src={recipe.photo} alt={"Picture of " + recipe.name} />
+            {/* Two small round buttons on the picture's corner: a new picture, or none */}
             <div className="recipe-photo-actions no-print">
-                {picker("Change")}
-                <button className="link-button" onClick={remove}>Remove</button>
+                <label className={"photo-icon" + (busy ? " busy" : "")} aria-label="Change the picture" title="Change the picture">
+                    <input type="file" accept="image/*" hidden disabled={busy} onChange={(e) => { void choose(e.target.files?.[0]); e.target.value = ""; }} />
+                    {busy ? "…" : CAMERA}
+                </label>
+                <button className="photo-icon" aria-label="Remove the picture" title="Remove the picture" onClick={remove}>{TRASH}</button>
             </div>
         </div>
     );
