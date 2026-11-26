@@ -8,6 +8,8 @@ import { useDb } from "../data/storage";
 import { addToMenu, deleteMenu, menuRows, menuStats, moveItem, removeFromMenu, updateMenu } from "../data/menus";
 import { findById, formatMoney, formatPercent } from "../data/utils";
 import TextInput from "../components/TextInput";
+import { useRecipesOnly } from "../data/place";
+import { FamilyMenuDetail } from "./FamilyMenus";
 
 export default function MenuDetail() {
     const db = useDb();
@@ -15,6 +17,7 @@ export default function MenuDetail() {
     const { menuId } = useParams();
     const menu = findById(db.menus, menuId ?? null);
     const [adding, setAdding] = useState("");
+    const recipesOnly = useRecipesOnly();
 
     if (menu === null) {
         return (
@@ -24,6 +27,7 @@ export default function MenuDetail() {
             </div>
         );
     }
+    if (recipesOnly) return <FamilyMenuDetail menu={menu} />;
 
     const rows = menuRows(menu.id);
     const stats = menuStats(menu.id);

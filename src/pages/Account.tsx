@@ -12,7 +12,8 @@ import { useSession } from "../cloud/session";
 import { PRIVACY_URL } from "../native";
 import { deleteAccount, previewDeletion, type DeletionPlan } from "../cloud/account";
 import { setMyName } from "../cloud/team";
-import { reloadNames, useMyName } from "../cloud/names";
+import { reloadNames } from "../cloud/names";
+import { setCelebrations, setHaptics, setSounds, useFeedbackSettings, type Celebrations } from "../feedback";
 
 export default function Account() {
     const session = useSession();
@@ -32,6 +33,7 @@ export default function Account() {
             <div className="page page-narrow">
                 <h1>Account</h1>
                 <p className="muted">You're using Agave without an account, so there's nothing to delete. Your data stays on this device; clear it from <Link to="/data">Backup &amp; export</Link>.</p>
+                <SoundSettings />
             </div>
         );
     }
@@ -56,6 +58,8 @@ export default function Account() {
             <YourName />
 
             <p className="muted small">How Agave handles your data: <a href={PRIVACY_URL} target="_blank" rel="noreferrer">privacy policy</a>.</p>
+
+            <SoundSettings />
 
             <section className="card danger-card">
                 <h2>Delete your account</h2>
@@ -106,7 +110,7 @@ export default function Account() {
 
 // Your name: shown on recipes you add ("Added by Mom") and your versions ("(Mom's Version)")
 function YourName() {
-    const saved = useMyName();
+    const saved = useSession().name;
     const [name, setName] = useState<string | null>(null);     // null = not edited yet
     const [note, setNote] = useState("");
     const shown = name ?? saved;
@@ -131,6 +135,28 @@ function YourName() {
                 <button type="submit" disabled={name === null || name.trim() === saved}>Save</button>
             </form>
             {note && <p className="muted small" role="status">{note}</p>}
+        </section>
+    );
+}
+
+// Sounds, vibration and celebrations: on by default, switches for anyone who'd rather not
+//     iPhones: sounds also stay quiet when the phone is on silent
+function SoundSettings() {
+    const feedback = useFeedbackSettings();
+    return (
+        <section className="card">
+            <h2>Sounds &amp; celebrations</h2>
+            <p className="muted small">The little chimes and pop-ups when something gets done. On an iPhone, sounds stay off while it's on silent.</p>
+            <label className="menu-toggle"><span>Sounds</span>
+                <input type="checkbox" checked={feedback.sounds} onChange={(e) => setSounds(e.target.checked)} /></label>
+            <label className="menu-toggle"><span>Vibration</span>
+                <input type="checkbox" checked={feedback.haptics} onChange={(e) => setHaptics(e.target.checked)} /></label>
+            <label className="menu-toggle"><span>Celebrations</span>
+                <select value={feedback.celebrations} onChange={(e) => setCelebrations(e.target.value as Celebrations)}>
+                    <option value="full">Full</option>
+                    <option value="subtle">Subtle</option>
+                    <option value="off">Off</option>
+                </select></label>
         </section>
     );
 }

@@ -208,6 +208,12 @@ function fillNewFields(old: OldSave) {
         recipe.description ??= "";
         recipe.directions ??= "";
     }
+    for (const menu of old.menus ?? []) {
+        menu.createdBy ??= "";
+    }
+    for (const item of old.menuItems ?? []) {
+        item.createdBy ??= "";
+    }
     for (const line of old.recipeLines ?? []) {
         line.ingredientId ??= null;
         line.subRecipeId ??= null;

@@ -7,7 +7,9 @@
 // Rules, so it stays fun instead of annoying:
 //     only real work gets a sound (a scan read, a step done, a count closed); saves stay quiet
 //     every sound is made here (no audio files to download), short and soft
-//     Sounds, Haptics and Celebrations (Full / Subtle / Off) live in the profile menu
+//     Sounds, Haptics and Celebrations (Full / Subtle / Off) are on by default, with switches
+//     near the bottom of the Account page
+//     on an iPhone, sounds follow the ring/silent switch (silent = no sounds)
 //     motion is skipped for people whose device asks for reduced motion
 // Phones only allow sound after a tap, so the first tap anywhere "unlocks" it (Layout calls unlockSound).
 // Buzz (vibrate) works on Android; iPhones don't let websites vibrate.
@@ -72,6 +74,10 @@ let audio: AudioContext | null = null;
 // Call on a tap: phones only start sound from a person's action
 export function unlockSound() {
     try {
+        // iPhone (Safari 16.4+ and the app): "ambient" audio obeys the silent switch
+        //     and mixes with music instead of pausing it
+        const session = (navigator as Navigator & { audioSession?: { type: string } }).audioSession;
+        if (session && session.type !== "ambient") session.type = "ambient";
         audio ??= new AudioContext();
         if (audio.state === "suspended") void audio.resume();
     } catch { /* no Web Audio: stay quiet */ }

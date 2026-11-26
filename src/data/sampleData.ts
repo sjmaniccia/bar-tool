@@ -177,11 +177,11 @@ export function sampleData(): Database {
             { id: "il-6", invoiceId: "inv-3", purchaseUnitId: "pu-sugar", quantity: 1, unitPrice: 18 }
         ],
         menus: [
-            { id: "m-fall", name: "Fall Cocktails", description: "The seasonal list on the back of the menu." }
+            { id: "m-fall", name: "Fall Cocktails", description: "The seasonal list on the back of the menu.", createdBy: "" }
         ],
         menuItems: [
-            { id: "mi-1", menuId: "m-fall", recipeId: "r-daiquiri", sortOrder: 1 },
-            { id: "mi-2", menuId: "m-fall", recipeId: "r-margarita", sortOrder: 2 }
+            { id: "mi-1", menuId: "m-fall", recipeId: "r-daiquiri", sortOrder: 1, createdBy: "" },
+            { id: "mi-2", menuId: "m-fall", recipeId: "r-margarita", sortOrder: 2, createdBy: "" }
         ],
         // A week of POS sales: rum comes up short on purpose; the lager and gift card need matching
         salesImports: [

@@ -1172,3 +1172,10 @@ a.button.disabled { opacity: 0.5; pointer-events: none; }
 /* Someone else's family recipe: what you can do, after the recipe */
 .recipe-bottom-actions { display: grid; gap: 10px; margin-top: 4px; }
 .recipe-bottom-actions p { margin: 0; }
+
+/* Recipe book menus */
+.menu-new { display: flex; gap: 8px; padding: 12px; }
+.menu-new input { flex: 1; }
+.menu-dish { display: flex; align-items: center; }
+.menu-dish > a { flex: 1; min-width: 0; }
+.menu-dish-actions { display: flex; gap: 4px; padding-right: 12px; }

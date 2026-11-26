@@ -7,6 +7,8 @@
 //     RECIPES       mine before and after (createdBy = me), or a new one that's mine
 //     RECIPE LINES  the recipe they belong to is mine, or it's gone
 //     INGREDIENTS   new ones are fine; no renaming or removing
+//     MENUS         mine before and after, like recipes
+//     MENU ITEMS    adding is fine (as mine); taking off: mine, or my menu; moving: my menu
 //     SETTINGS      the owner's (placeSettings)
 
 import type { Database } from "../data/types";
@@ -24,6 +26,12 @@ export function familyBlocked(changes: Change[], data: Database, base: Snapshot,
         const now = data.recipes.find((r) => r.id === recipeId);
         if (now) return now.createdBy;
         return null;
+    };
+    const menuMineOrGone = (menuId: unknown) => {
+        const old = before("menus", String(menuId));
+        if (old !== null) return old.createdBy === me;
+        const now = data.menus.find((m) => m.id === menuId);
+        return !now || now.createdBy === me;
     };
     const mineOrGone = (recipeId: unknown) => {
         const owner = ownerOf(recipeId);
@@ -43,6 +51,12 @@ export function familyBlocked(changes: Change[], data: Database, base: Snapshot,
                 return (old !== null && old.createdBy !== me) || (now !== null && now.createdBy !== me);
             case "recipeLines":
                 return (old !== null && !mineOrGone(old.recipeId)) || (now !== null && !mineOrGone(now.recipeId));
+            case "menus":
+                return (old !== null && old.createdBy !== me) || (now !== null && now.createdBy !== me);
+            case "menuItems":
+                if (old === null) return now !== null && now.createdBy !== me;
+                if (now === null) return old.createdBy !== me && !menuMineOrGone(old.menuId);
+                return !menuMineOrGone(old.menuId) || !menuMineOrGone(now.menuId) || now.createdBy !== old.createdBy;
             case "ingredients":
                 return old !== null && (now === null || now.name !== old.name);
             default:

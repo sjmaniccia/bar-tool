@@ -29,6 +29,26 @@ describe("family change only their own recipes", () => {
         expect(familyBlocked(changes, data, base, "me")).toHaveLength(changes.length);
     });
 
+    test("menus: anyone adds a dish; the maker runs it", () => {
+        const menuBase: Snapshot = new Map([
+            [recordKey("menus", "tg"), stable({ id: "tg", name: "Thanksgiving", createdBy: "mom" })],
+            [recordKey("menuItems", "momsDish"), stable({ id: "momsDish", menuId: "tg", sortOrder: 1, createdBy: "mom" })],
+            [recordKey("menuItems", "myDish"), stable({ id: "myDish", menuId: "tg", sortOrder: 2, createdBy: "me" })]
+        ]);
+        const ok: Change[] = [
+            { kind: "menuItems", id: "new", data: { id: "new", menuId: "tg", sortOrder: 3, createdBy: "me" } },
+            { kind: "menuItems", id: "myDish", data: null },
+            { kind: "menus", id: "mine", data: { id: "mine", name: "Brunch", createdBy: "me" } }
+        ];
+        expect(familyBlocked(ok, data, menuBase, "me")).toEqual([]);
+        const refused: Change[] = [
+            { kind: "menus", id: "tg", data: { id: "tg", name: "Friendsgiving", createdBy: "mom" } },
+            { kind: "menuItems", id: "momsDish", data: null },
+            { kind: "menuItems", id: "myDish", data: { id: "myDish", menuId: "tg", sortOrder: 0, createdBy: "me" } }
+        ];
+        expect(familyBlocked(refused, data, menuBase, "me")).toHaveLength(3);
+    });
+
     test("lets through my recipes, new ones, their lines and new ingredients", () => {
         const changes: Change[] = [
             { kind: "recipes", id: "mine", data: recipe("mine", "me", "Mine, better") },

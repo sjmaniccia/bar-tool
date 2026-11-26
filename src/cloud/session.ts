@@ -26,6 +26,7 @@ export interface BarInfo {
     id: string;
     name: string;
     role: Role;
+    recipeBook: boolean;    // a "Just recipes" place: called a recipe book (recipes-only.sql)
 }
 
 export interface Session {
@@ -33,6 +34,7 @@ export interface Session {
     demo: boolean;              // chose "try without an account"
     email: string;
     userId: string;
+    name: string;               // what I call myself ("Mom"); "" = not given yet
     bars: BarInfo[];
     bar: BarInfo | null;
     sync: SyncStatus;
@@ -49,6 +51,7 @@ let session: Session = {
     demo: false,
     email: "",
     userId: "",
+    name: "",
     bars: [],
     bar: null,
     sync: { state: "saved", pending: 0, message: "" },
@@ -127,7 +130,7 @@ let recovering = false;
 //     IF a reset link arrives meanwhile -> stop (checked after each wait)
 async function signedIn(user: User) {
     if (recovering) return;
-    set({ mode: "loading", email: user.email ?? "", userId: user.id });
+    set({ mode: "loading", email: user.email ?? "", userId: user.id, name: String(user.user_metadata?.name ?? "").trim() });
     setMe(user.id);
     await supabase!.rpc("accept_invites");
     if (recovering) return;
@@ -159,8 +162,11 @@ async function signedIn(user: User) {
 async function loadBars(): Promise<BarInfo[]> {
     const { data, error } = await supabase!.from("members").select("role, bars(id, name)").eq("user_id", session.userId);
     if (error) throw error;
+    // Which are recipe books (an empty list if recipes-only.sql isn't in yet)
+    const books = await supabase!.rpc("my_recipe_books");
+    const bookIds = new Set<string>(books.error ? [] : (books.data as string[]));
     return (data as unknown as { role: Role; bars: { id: string; name: string } }[])
-        .map((m) => ({ id: m.bars.id, name: m.bars.name, role: m.role }))
+        .map((m) => ({ id: m.bars.id, name: m.bars.name, role: m.role, recipeBook: bookIds.has(m.bars.id) }))
         .sort((a, b) => a.name.localeCompare(b.name));
 }
 
@@ -218,6 +224,11 @@ export async function switchBar(barId: string) {
 
 export type StartWith = "empty" | "sample" | "device";
 
+// After I set my name (team.ts setMyName)
+export function rememberMyName(name: string) {
+    set({ name: name.trim() });
+}
+
 // Make a new place, with me as owner, and open it
 //     recipesOnly -> a family's recipes: starts empty with costing hidden (data/place.ts)
 export async function createBar(name: string, startWith: StartWith, recipesOnly = false): Promise<string | null> {
@@ -230,6 +241,7 @@ export async function createBar(name: string, startWith: StartWith, recipesOnly 
     if (recipesOnly) {
         start = emptyData();
         start.placeSettings.push({ id: "place", recipesOnly: true });
+        bar.recipeBook = true;
     }
     await openBar(bar, start);
     return null;
@@ -287,9 +299,10 @@ export async function signIn(email: string, password: string): Promise<string | 
 }
 
 // Returns an error, or "confirm" if they need to click the email link first
-export async function signUp(email: string, password: string): Promise<string | null> {
+//     name -> kept on the account; every place I join shows it ("Added by Mom", recipes-only.sql)
+export async function signUp(email: string, password: string, name = ""): Promise<string | null> {
     const { data, error } = await supabase!.auth.signUp({
-        email: email.trim(), password, options: { emailRedirectTo: returnAddress() }
+        email: email.trim(), password, options: { emailRedirectTo: returnAddress(), data: { name: name.trim() } }
     });
     if (error) return friendly(error.message);
     return data.session === null ? "confirm" : null;
@@ -328,7 +341,7 @@ function signedOutLocally() {
     for (const bar of session.bars) remove(CACHE_PREFIX + bar.id);
     remove(BAR_KEY);
     showData(deviceData());
-    set({ mode: "signed-out", email: "", userId: "", bars: [], bar: null });
+    set({ mode: "signed-out", email: "", userId: "", name: "", bars: [], bar: null });
     setMe("");
 }
 

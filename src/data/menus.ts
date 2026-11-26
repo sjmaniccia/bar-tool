@@ -1,15 +1,19 @@
 // ===== menus.ts =====
 // Menus group recipes (the fall cocktail list, the brunch menu) so you can see
 // the costs of a whole menu at once and print a spec book for staff.
+// In a recipe book, a menu is a meal (Thanksgiving): anyone adds dishes; the one who made
+// the menu (or the owner) renames, reorders, deletes it or takes dishes off. You can
+// always take off a dish you added. (recipes-only.sql enforces it.)
 
 import { db, commit } from "./storage";
 import { summarize, type RecipeSummary } from "./costing";
 import { findById, makeId } from "./utils";
 import type { MenuItem, Recipe } from "./types";
+import { me } from "./me";
 
 export function createMenu(name: string): string {
     const id = makeId();
-    db.menus.push({ id, name: name.trim() || "New menu", description: "" });
+    db.menus.push({ id, name: name.trim() || "New menu", description: "", createdBy: me() });
     commit();
     return id;
 }
@@ -37,7 +41,7 @@ export function addToMenu(menuId: string, recipeId: string) {
     const items = itemsOf(menuId);
     if (items.some((i) => i.recipeId === recipeId)) return;
     const last = items.length === 0 ? 0 : items[items.length - 1].sortOrder;
-    db.menuItems.push({ id: makeId(), menuId, recipeId, sortOrder: last + 1 });
+    db.menuItems.push({ id: makeId(), menuId, recipeId, sortOrder: last + 1, createdBy: me() });
     commit();
 }
 

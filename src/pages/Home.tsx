@@ -21,7 +21,7 @@ import { Link, useNavigate } from "react-router";
 import { useDb } from "../data/storage";
 import { useSession } from "../cloud/session";
 import { cloudEnabled } from "../cloud/client";
-import { listMembers } from "../cloud/team";
+import { listMembers, setMyName } from "../cloud/team";
 import { createRecipe } from "../data/actions";
 import { summarize } from "../data/costing";
 import { recipesOverTarget } from "../data/alerts";
@@ -35,6 +35,7 @@ import { celebrate, toast } from "../feedback";
 import InviteCard from "../components/InviteCard";
 import type { Database, Recipe } from "../data/types";
 import { useRecipesOnly } from "../data/place";
+import { reloadNames } from "../cloud/names";
 
 const STEP_NAMES: Record<StepId, string> = {
     recipes: "Recipes in",
@@ -79,6 +80,7 @@ function FamilyHome() {
     if (db.recipes.length === 0) {
         return (
             <div className="page home">
+                {session.mode === "ready" && session.name === "" && <AskMyName />}
                 <RecipesStep onNew={newRecipe} big family />
             </div>
         );
@@ -86,6 +88,7 @@ function FamilyHome() {
     const askToShare = alone && !prefs.later.includes("team");
     return (
         <div className="page home">
+            {session.mode === "ready" && session.name === "" && <AskMyName />}
             <div className="home-head">
                 <div>
                     <div className="muted small">{session.bar?.name ?? "Your recipes"}</div>
@@ -106,6 +109,30 @@ function FamilyHome() {
             )}
             <RecipeStrip db={db} noCosts all />
         </div>
+    );
+}
+
+// Joined a recipe book without a name (an account from before names were asked)
+function AskMyName() {
+    const [name, setName] = useState("");
+    const [error, setError] = useState("");
+    async function save(event: React.FormEvent) {
+        event.preventDefault();
+        if (name.trim() === "") return;
+        const problem = await setMyName(name);
+        if (problem) setError(problem);
+        else reloadNames();
+    }
+    return (
+        <section className="card step-card">
+            <h2 className="step-title">What should everyone call you?</h2>
+            <p className="step-body">It goes on the recipes you add ("Added by Mom") and your versions of others' recipes.</p>
+            <form className="button-row" onSubmit={save}>
+                <input value={name} maxLength={60} placeholder="Mom, Sarah, Uncle Joe" aria-label="Your name" onChange={(e) => setName(e.target.value)} />
+                <button type="submit" disabled={name.trim() === ""}>Save</button>
+            </form>
+            {error && <p className="error">{error}</p>}
+        </section>
     );
 }
 

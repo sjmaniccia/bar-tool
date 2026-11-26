@@ -13,7 +13,7 @@
 // FIXME: send invite emails (a Supabase Edge Function with an email service like Resend)
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { useSession } from "../cloud/session";
+import { refreshBars, useSession } from "../cloud/session";
 import { setRecipesOnly, useRecipesOnly } from "../data/place";
 import { cancelInvite, invite, listInvites, listMembers, removeMember, renameBar, ROLE_NOTES, setRole, type Invite, type Member } from "../cloud/team";
 import type { Role } from "../cloud/sync";
@@ -60,10 +60,11 @@ export default function Team() {
     function switchCosting(on: boolean) {
         const ask = on
             ? "Turn on costing, stock and sales for " + bar!.name + "? Everyone here will see costs, the Stock and Numbers sections, and invoice scanning."
-            : "Make " + bar!.name + " just recipes? Costs, stock, sales and invoices get hidden for everyone (not deleted)."
+            : "Make " + bar!.name + " a recipe book? Costs, stock, sales and invoices get hidden for everyone (not deleted)."
                 + (members.some((m) => m.role === "staff") ? " Staff become \"Family\", since a recipes place has no staff." : "");
         if (!confirm(ask)) return;
         setRecipesOnly(!on);
+        setTimeout(() => void refreshBars(), 2500);
         // The server moves staff over once the change arrives (recipes-only.sql): show it
         setTimeout(() => void load(), 1500);
     }
@@ -100,7 +101,7 @@ export default function Team() {
 
             {isOwner && (
                 <section className="card">
-                    <h2>This place</h2>
+                    <h2>{recipesOnly ? "This recipe book" : "This place"}</h2>
                     <label className="form-field narrow-field">
                         <span>Name</span>
                         <TextInput value={bar.name} required onSave={(name) => void run(renameBar(bar.id, name))} />
@@ -109,8 +110,8 @@ export default function Team() {
                         <span>
                             <strong>Costing, stock and sales</strong>
                             <span className="muted small">{recipesOnly
-                                ? "Off: just recipes. Turn it on to cost recipes, count stock and scan invoices."
-                                : "On. Turn it off for a family or personal recipe place."}</span>
+                                ? "Off: it's a recipe book. Turn it on to cost recipes, count stock and scan invoices."
+                                : "On. Turn it off to make this a recipe book (family or personal recipes)."}</span>
                         </span>
                         <input type="checkbox" checked={!recipesOnly} onChange={(e) => switchCosting(e.target.checked)} />
                     </label>

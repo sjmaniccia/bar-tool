@@ -8,7 +8,8 @@ import {
     clearNotice, createBar, hasDeviceData, pendingJoinCode, sendPasswordReset, setNewPassword, signIn, signOut, signUp,
     startDemo, useSession, type StartWith
 } from "../cloud/session";
-import { peekInviteLink } from "../cloud/team";
+import { peekInviteLink, setMyName } from "../cloud/team";
+import { reloadNames } from "../cloud/names";
 import { supabase } from "../cloud/client";
 import { BrandMark } from "../components/BrandMark";
 
@@ -51,12 +52,13 @@ type Tab = "in" | "up" | "forgot";
 export function SignInScreen() {
     // Came from an invite link? Say which bar, and start on "Create account"
     const joinCode = pendingJoinCode();
-    const [joining, setJoining] = useState<{ barName: string; role: string } | null | "bad">(null);
+    const [joining, setJoining] = useState<{ barName: string; role: string; recipeBook: boolean } | null | "bad">(null);
     useEffect(() => {
         if (!joinCode) return;
         void peekInviteLink(joinCode).then((info) => setJoining(info ?? "bad"));
     }, [joinCode]);
     const [tab, setTab] = useState<Tab>(joinCode ? "up" : "in");
+    const [name, setName] = useState("");          // Create account: what others see ("Added by Mom")
     const [email, setEmail] = useState("");
     const [password, setPassword] = useState("");
     const [error, setError] = useState("");
@@ -72,11 +74,15 @@ export function SignInScreen() {
             const result = await signIn(email, password);
             if (result) setError(result);
         } else if (tab === "up") {
+            if (name.trim() === "") {
+                setBusy(false);
+                return setError("Add your name, so others know which recipes and versions are yours.");
+            }
             if (password.length < 8) {
                 setBusy(false);
                 return setError("Use a password of at least 8 characters.");
             }
-            const result = await signUp(email, password);
+            const result = await signUp(email, password, name);
             if (result === "confirm") setSent("We sent a link to " + email.trim() + ". Click it to finish making your account, then sign in.");
             else if (result) setError(result);
         } else {
@@ -107,7 +113,9 @@ export function SignInScreen() {
         <AuthCard title={titles[tab]} subtitle={tab === "forgot" ? "We'll email you a link to set a new one." : undefined}>
             {joining && joining !== "bad" && (
                 <div className="auth-joining" role="status">
-                    You're joining <strong>{joining.barName}</strong> as {joining.role === "manager" ? "a manager" : "staff"}.
+                    {joining.recipeBook
+                        ? <>You're joining the <strong>{joining.barName}</strong> recipe book.</>
+                        : <>You're joining <strong>{joining.barName}</strong> as {joining.role === "manager" ? "a manager" : "staff"}.</>}
                     {tab === "up" ? " Make an account to get in." : " Sign in to get in."}
                 </div>
             )}
@@ -119,6 +127,13 @@ export function SignInScreen() {
                 </div>
             )}
             <form className="auth-form" onSubmit={submit}>
+                {tab === "up" && (
+                    <label className="form-field">
+                        <span>Your name</span>
+                        <input autoComplete="given-name" required maxLength={60} value={name} placeholder="What your family or team calls you"
+                            onChange={(e) => setName(e.target.value)} />
+                    </label>
+                )}
                 <label className="form-field">
                     <span>Email</span>
                     <input type="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -185,9 +200,12 @@ export function NewPasswordScreen() {
 // The form for a new place: what it's for, its name, what it starts with
 //     used here (first place) and on "Start a new place" (another one)
 //     A bar/restaurant/brewery -> costing, stock, sales; can start with sample data
-//     Family or personal       -> just recipes; starts empty
+//     A recipe book            -> just recipes (family or personal); starts empty
 export function PlaceSetupForm({ onCancel, onDone }: { onCancel?: () => void; onDone?: () => void }) {
     const deviceHasData = hasDeviceData() && !onCancel;    // only offered for a first place
+    const session = useSession();
+    const askName = session.name === "";                    // accounts made before names were asked
+    const [myName, setMyNameText] = useState("");
     const [kind, setKind] = useState<"business" | "family">("business");
     const [name, setName] = useState("");
     const [start, setStart] = useState<StartWith>(deviceHasData ? "device" : "empty");
@@ -197,18 +215,22 @@ export function PlaceSetupForm({ onCancel, onDone }: { onCancel?: () => void; on
 
     async function submit(event: FormEvent) {
         event.preventDefault();
-        if (name.trim() === "") return setError("Give your place a name.");
+        if (name.trim() === "") return setError(family ? "Give your recipe book a name." : "Give your place a name.");
+        if (askName && family && myName.trim() === "") return setError("Add your name, so everyone knows which recipes are yours.");
         setBusy(true);
         const result = await createBar(name, family ? "empty" : start, family);
         if (result) {
             setError(result);
             setBusy(false);
-        } else onDone?.();
+        } else {
+            if (askName && myName.trim() && (await setMyName(myName)) === null) reloadNames();
+            onDone?.();
+        }
     }
 
     const kinds = [
         { value: "business" as const, label: "A bar, restaurant or brewery", note: "Recipes with costs, menus, stock counts, invoices and sales." },
-        { value: "family" as const, label: "Family or personal recipes", note: "Just the recipes: scan them, share them, cook from them. No costs." }
+        { value: "family" as const, label: "A recipe book", note: "Family or personal recipes: scan them, share them, cook from them. No costs." }
     ];
     const options: { value: StartWith; label: string; note: string; show: boolean }[] = [
         { value: "device", label: "What I set up on this device", note: "Bring along the recipes and products you made before signing up.", show: deviceHasData },
@@ -228,9 +250,16 @@ export function PlaceSetupForm({ onCancel, onDone }: { onCancel?: () => void; on
                 ))}
             </fieldset>
             <label className="form-field">
-                <span>{family ? "Name" : "Bar, restaurant or brewery name"}</span>
+                <span>{family ? "Recipe book name" : "Bar, restaurant or brewery name"}</span>
                 <input required maxLength={100} value={name} placeholder={family ? "Family recipes" : "Shady's Corner"} onChange={(e) => setName(e.target.value)} />
             </label>
+            {family && askName && (
+                <label className="form-field">
+                    <span>Your name</span>
+                    <input required maxLength={60} value={myName} placeholder="What your family calls you" onChange={(e) => setMyNameText(e.target.value)} />
+                    <span className="muted small">Shown on recipes you add, like "Added by Mom".</span>
+                </label>
+            )}
             {!family && (
                 <fieldset className="start-options">
                     <legend>Start with</legend>

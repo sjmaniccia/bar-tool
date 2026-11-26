@@ -16,7 +16,7 @@ const SUPABASE_STAND_IN = `
     create role authenticated;
     create role service_role;
     create schema auth;
-    create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz);
+    create table auth.users (id uuid primary key, email text, email_confirmed_at timestamptz, raw_user_meta_data jsonb default '{}');
     create function auth.uid() returns uuid language sql stable as
         $$ select nullif(current_setting('test.uid', true), '')::uuid $$;
     create function auth.jwt() returns jsonb language sql stable as
@@ -229,7 +229,7 @@ describe("invite links", () => {
 
         // Before signing in: what the link is for, and nothing else
         const peek = await as(null, "select * from public.peek_invite_link($1)", [code]);
-        expect(peek.rows).toEqual([{ bar_name: "Shady's", role: "staff" }]);
+        expect(peek.rows).toEqual([{ bar_name: "Shady's", role: "staff", recipe_book: false }]);
         await expect(as(null, "select * from public.invite_links")).rejects.toThrow();
         await expect(as(null, "select public.join_with_link($1)", [code])).rejects.toThrow();
 
@@ -252,6 +252,11 @@ describe("invite links", () => {
         expect(ok.rows[0].code).toBeTruthy();
         await as(OWNER, "select public.set_member_role($1, $2, 'staff')", [barId, STAFF]);
         await expect(as(OWNER, "insert into public.invite_links (code, bar_id, role) values ('x', $1, 'manager')", [barId])).rejects.toThrow();
+    });
+
+    test("someone outside the place can't turn a link off", async () => {
+        const code = (await as(OWNER, "select public.make_invite_link($1) as code", [barId])).rows[0].code as string;
+        await expect(as(STRANGER, "select public.revoke_invite_link($1)", [code])).rejects.toThrow(/can't turn off/);
     });
 
     test("a turned-off or expired link stops working", async () => {
@@ -294,6 +299,9 @@ describe("Just recipes places have no staff", () => {
         await expect(as(COOK, "select public.make_invite_link($1, 'staff')", [fam])).rejects.toThrow(/no staff/);
         await expect(as(AUNT, "select public.make_invite_link($1, 'staff')", [fam])).rejects.toThrow(/no staff/);
         await expect(as(COOK, "select public.set_member_role($1, $2, 'staff')", [fam, AUNT])).rejects.toThrow(/no staff/);
+        const link = (await as(COOK, "select public.make_invite_link($1, 'manager') as code", [fam])).rows[0].code as string;
+        expect((await as(null, "select * from public.peek_invite_link($1)", [link])).rows).toEqual([{ bar_name: "Family", role: "manager", recipe_book: true }]);
+        expect((await as(AUNT, "select * from public.my_recipe_books() as id")).rows).toEqual([{ id: fam }]);
         await as(COUSIN, "select public.accept_invites()");
         const cousin = await as(COOK, "select role from public.members where bar_id = $1 and user_id = $2", [fam, COUSIN]);
         expect(cousin.rows).toEqual([{ role: "manager" }]);
@@ -341,6 +349,39 @@ describe("Just recipes places have no staff", () => {
         await put(AUNT, "recipeLines", "l1", null);
         const left = await as(COOK, "select id from public.records where bar_id = $1 and kind = 'recipes' and not deleted order by id", [fam]);
         expect(left.rows.map((r) => r.id)).toEqual(["stuffing-c"]);
+    });
+
+    test("menus: anyone adds a dish; the maker runs the menu", async () => {
+        const put = (who: string, kind: string, id: string, data: object | null) => as(who,
+            "insert into public.records (bar_id, kind, id, data, deleted) values ($1, $2, $3, $4, $5) on conflict (bar_id, kind, id) do update set data = excluded.data, deleted = excluded.deleted",
+            [fam, kind, id, data === null ? null : JSON.stringify(data), data === null]);
+        const thanksgiving = { id: "tg", name: "Thanksgiving", description: "", createdBy: AUNT };
+        await put(AUNT, "menus", "tg", thanksgiving);
+        await put(AUNT, "menuItems", "i1", { id: "i1", menuId: "tg", recipeId: "turkey", sortOrder: 1, createdBy: AUNT });
+        // Cousin brings a dish, and can take their own dish off again
+        await put(COUSIN, "menuItems", "i2", { id: "i2", menuId: "tg", recipeId: "pie", sortOrder: 2, createdBy: COUSIN });
+        await put(COUSIN, "menuItems", "i3", { id: "i3", menuId: "tg", recipeId: "rolls", sortOrder: 3, createdBy: COUSIN });
+        await put(COUSIN, "menuItems", "i3", null);
+        // ...but can't rename the menu, take off Aunt's dish, reorder, or pretend a dish is Aunt's
+        await expect(put(COUSIN, "menus", "tg", { ...thanksgiving, name: "Friendsgiving" })).rejects.toThrow(/made this menu/);
+        await expect(put(COUSIN, "menus", "tg", null)).rejects.toThrow(/made this menu/);
+        await expect(put(COUSIN, "menuItems", "i1", null)).rejects.toThrow(/take that dish off/);
+        await expect(put(COUSIN, "menuItems", "i2", { id: "i2", menuId: "tg", recipeId: "pie", sortOrder: 0, createdBy: COUSIN })).rejects.toThrow(/made this menu/);
+        await expect(put(COUSIN, "menuItems", "i4", { id: "i4", menuId: "tg", recipeId: "x", sortOrder: 4, createdBy: AUNT })).rejects.toThrow(/has to be yours/);
+        // The maker reorders and takes off anyone's dish; the owner can too
+        await put(AUNT, "menuItems", "i2", { id: "i2", menuId: "tg", recipeId: "pie", sortOrder: 0, createdBy: COUSIN });
+        await put(COOK, "menus", "tg", { ...thanksgiving, name: "Thanksgiving 2026" });
+        await put(AUNT, "menuItems", "i2", null);
+        const left = await as(COOK, "select id from public.records where bar_id = $1 and kind = 'menuItems' and not deleted", [fam]);
+        expect(left.rows).toEqual([{ id: "i1" }]);
+    });
+
+    test("the name from sign-up is used when joining", async () => {
+        const NEWCOMER = "00000000-0000-0000-0000-0000000000f4";
+        await db.exec(`insert into auth.users values ('${NEWCOMER}', 'grandpa@home.com', now(), '{"name":" Grandpa "}')`);
+        const place = (await as(NEWCOMER, "select public.create_bar('Grandpa''s') as id")).rows[0].id as string;
+        const me = await as(NEWCOMER, "select display_name from public.members where bar_id = $1", [place]);
+        expect(me.rows).toEqual([{ display_name: "Grandpa" }]);
     });
 
     test("names carry across places", async () => {

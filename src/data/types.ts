@@ -268,6 +268,7 @@ export interface Menu {
     id: string;
     name: string;
     description: string;
+    createdBy: string;      // who made it (an account id), "" = unknown; in a recipe book they run it
 }
 
 export interface MenuItem {
@@ -275,6 +276,7 @@ export interface MenuItem {
     menuId: string;
     recipeId: string;
     sortOrder: number;
+    createdBy: string;      // who put this dish on the menu (they can take it off again)
 }
 
 

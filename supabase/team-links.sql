@@ -110,7 +110,7 @@ declare
     target uuid;
 begin
     select bar_id into target from public.invite_links where code = link_code;
-    if target is null or public.my_role(target) not in ('owner', 'manager') then
+    if target is null or coalesce(public.my_role(target), '') not in ('owner', 'manager') then
         raise exception 'You can''t turn off that link';
     end if;
     update public.invite_links set revoked = true where code = link_code;

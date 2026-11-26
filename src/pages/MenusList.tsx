@@ -5,8 +5,14 @@ import { Link, useNavigate } from "react-router";
 import { useDb } from "../data/storage";
 import { createMenu, itemsOf, menuStats } from "../data/menus";
 import { formatMoney, formatPercent } from "../data/utils";
+import { useRecipesOnly } from "../data/place";
+import { FamilyMenusList } from "./FamilyMenus";
 
 export default function MenusList() {
+    return useRecipesOnly() ? <FamilyMenusList /> : <BarMenusList />;
+}
+
+function BarMenusList() {
     const db = useDb();
     const navigate = useNavigate();
 

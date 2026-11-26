@@ -3,7 +3,7 @@
 // always keeps an owner) live in the database, in schema.sql; these just ask.
 
 import { supabase } from "./client";
-import { refreshBars } from "./session";
+import { refreshBars, rememberMyName } from "./session";
 import type { Role } from "./sync";
 
 export interface Member {
@@ -28,9 +28,13 @@ export async function listMembers(barId: string): Promise<Member[]> {
 }
 
 // The name others see on recipes I add ("Added by Mom"), in every place I'm in
+//     also kept on the account, for places I join later
 export async function setMyName(name: string): Promise<string | null> {
     const { error } = await supabase!.rpc("set_my_name", { new_name: name });
-    return error ? error.message : null;
+    if (error) return error.message;
+    await supabase!.auth.updateUser({ data: { name: name.trim() } });
+    rememberMyName(name);
+    return null;
 }
 
 // What to call someone: their name, or the start of their email ("sarah" from sarah@…)
@@ -125,8 +129,8 @@ export async function replaceInviteLink(barId: string, link: InviteLink): Promis
 }
 
 // What a link is for, before signing in -> {barName, role}, or null if it doesn't work
-export async function peekInviteLink(code: string): Promise<{ barName: string; role: Role } | null> {
+export async function peekInviteLink(code: string): Promise<{ barName: string; role: Role; recipeBook: boolean } | null> {
     const { data, error } = await supabase!.rpc("peek_invite_link", { link_code: code });
-    const row = (data as { bar_name: string; role: Role }[] | null)?.[0];
-    return error || !row ? null : { barName: row.bar_name, role: row.role };
+    const row = (data as { bar_name: string; role: Role; recipe_book?: boolean }[] | null)?.[0];
+    return error || !row ? null : { barName: row.bar_name, role: row.role, recipeBook: row.recipe_book === true };
 }
