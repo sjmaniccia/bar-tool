@@ -12,6 +12,8 @@
 
 import type { Database } from "../data/types";
 import { applyRemote, diff, rebase, recordKey, revert, snapshot, stable, type Change, type RemoteRow, type Snapshot } from "./records";
+import { familyBlocked } from "./familyRules";
+import { isRecipesOnly } from "../data/place";
 
 export type Role = "owner" | "manager" | "staff";
 
@@ -58,7 +60,8 @@ export class SyncEngine {
         private transport: Transport,
         private port: DataPort,
         readonly barId: string,
-        readonly role: Role
+        readonly role: Role,
+        readonly userId = ""
     ) {}
 
     // Open the bar: cached copy first, then the server's
@@ -127,6 +130,17 @@ export class SyncEngine {
                     this.port.show(data);
                     changes = changes.filter((c) => STAFF_KINDS.has(c.kind));
                     notice = "Staff accounts can only change counts and the waste log, so other changes were undone.";
+                }
+            }
+            // Just recipes: family change only their own recipes (familyRules.ts)
+            if (this.role === "manager" && isRecipesOnly(this.port.get())) {
+                const blocked = familyBlocked(changes, this.port.get(), this.base, this.userId);
+                if (blocked.length > 0) {
+                    const data = this.port.get();
+                    revert(data, this.base, blocked);
+                    this.port.show(data);
+                    changes = changes.filter((c) => !blocked.includes(c));
+                    notice = "You can only change recipes you added, so other changes were undone. Make your own version instead.";
                 }
             }
             if (changes.length === 0) {

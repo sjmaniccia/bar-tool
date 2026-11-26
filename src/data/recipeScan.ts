@@ -8,11 +8,14 @@
 //             2. SUGGESTED: the words mostly match                      -> "fresh lime juice" ~ "Lime juice"
 //                                                                          "Tito's" ~ the product "Tito's Handmade Vodka" -> its ingredient
 //             3. NEW: nothing close -> a new ingredient by that name, made when saved
+//         (a "Just recipes" place skips step 2: a family recipe's "sage" stays "sage")
+//         a count with no unit written ("2 onions") is marked to be checked
 //     SAVE the ticked recipes (prep recipes first, so cocktails can use the syrups they make)
 //
 // New ingredients have no cost until they're linked to a product or prep recipe,
 // so the recipe page shows them as "no cost yet": the same as adding a recipe by hand.
 
+import { me } from "./me";
 import { db, commit } from "./storage";
 import { findIngredientByName, getOrCreateIngredient } from "./actions";
 import { findById, makeId } from "./utils";
@@ -27,6 +30,9 @@ export interface RecipeDraftLine {
     scanned: ScannedIngredient;
     amount: number | null;
     unit: string;
+    countWord: string;             // "clove" in "3 cloves garlic"; "" = the thing itself
+    note: string;                  // "chopped", "to taste"
+    checkCount: boolean;           // "2 onions": no unit was written; the person confirms it's a count
     ingredientId: string | null;   // null = a new ingredient called newName
     newName: string;
     how: IngredientHow;
@@ -47,6 +53,7 @@ export interface RecipeDraft {
     yieldAmount: number;
     yieldUnit: string;
     hasPhoto: boolean;
+    open: number | null;           // the line being edited (null = none): the screen's state, saved nowhere
     photo: string;                 // the picture cut out of the page (a web address or data), "" for none
     photoBlob?: Blob | null;       // the cut-out picture, until it's saved (then photo is its address)
     lines: RecipeDraftLine[];
@@ -71,12 +78,13 @@ export function nameScore(a: string[], b: string[]): number {
     return (shared / Math.min(a.length, b.length)) * (0.5 + 0.5 * shared / Math.max(a.length, b.length));
 }
 
-export function matchIngredient(name: string): { ingredientId: string | null; how: IngredientHow } {
+export function matchIngredient(name: string, closeMatches = true): { ingredientId: string | null; how: IngredientHow } {
     const exact = findIngredientByName(name);
     if (exact) return { ingredientId: exact.id, how: "exact" };
     const lower = name.trim().toLowerCase();
     const product = db.products.find((p) => p.name.toLowerCase() === lower && p.ingredientId);
     if (product) return { ingredientId: product.ingredientId, how: "exact" };
+    if (!closeMatches) return { ingredientId: null, how: "new" };
 
     const mine = ingredientWords(name);
     let best: { id: string; score: number } | null = null;
@@ -105,19 +113,32 @@ export function findRecipeByName(name: string): string | null {
     return db.recipes.find((r) => r.name.toLowerCase() === lower)?.id ?? null;
 }
 
-export function buildRecipeDrafts(recipes: ScannedRecipe[], page: number): RecipeDraft[] {
+//     recipesOnly: no close matches, no drink fields, and every recipe is a Dish
+//     "Serves 8" -> makes 8 servings (costing divides by it, so cost per serving comes out right)
+export function buildRecipeDrafts(recipes: ScannedRecipe[], page: number, recipesOnly = false): RecipeDraft[] {
     return recipes.map((r) => {
         const duplicateOf = findRecipeByName(r.name);
+        const serves = r.type !== "Prep" && r.serves ? r.serves : null;
         return {
-            key: makeId(), page, include: duplicateOf === null, duplicateOf,
-            name: r.name, type: r.type, glass: r.glass, garnish: r.garnish, directions: r.directions, description: r.description,
-            menuPrice: r.menuPrice, yieldAmount: r.yieldAmount, yieldUnit: r.yieldUnit, hasPhoto: r.hasPhoto, photo: "",
+            key: makeId(), page, include: duplicateOf === null, duplicateOf, open: null,
+            name: r.name, type: recipesOnly ? "Dish" : r.type,
+            glass: recipesOnly ? "" : r.glass, garnish: recipesOnly ? "" : r.garnish,
+            directions: r.directions, description: r.description,
+            menuPrice: recipesOnly ? null : r.menuPrice,
+            yieldAmount: serves ?? r.yieldAmount, yieldUnit: serves ? "serving" : r.yieldUnit,
+            hasPhoto: r.hasPhoto, photo: "",
             lines: r.ingredients.map((g) => ({
-                scanned: g, amount: g.amount, unit: g.unit, newName: tidyName(g.name),
-                ...matchIngredient(g.name)
+                scanned: g, amount: g.amount, unit: g.unit, countWord: g.countWord ?? "", note: g.note,
+                checkCount: g.unitGuessed === true, newName: tidyName(g.name),
+                ...matchIngredient(g.name, !recipesOnly)
             }))
         };
     });
+}
+
+// The name a line shows: its ingredient's, or the new one's
+export function draftLineName(line: RecipeDraftLine): string {
+    return line.ingredientId ? findById(db.ingredients, line.ingredientId)?.name ?? line.newName : line.newName;
 }
 
 // Names that mean the same ingredient share a key: "Fresh lemon juice" and "lemon juice"
@@ -155,12 +176,10 @@ function ingredientFor(name: string): string {
 
 // Save one draft as a recipe -> its id
 //     IF the name is taken -> "<name> (scanned)"
-//     lines with no amount ("top with soda") are kept at 0, and the word goes in the directions
+//     lines with no amount ("top with soda") are kept at 0 with no unit, the word as their note
 //     a prep recipe makes the ingredient with its name (so cocktails using it get its cost)
+//     each line keeps its count word and note ("3 cloves garlic, minced", "salt to taste")
 export function saveRecipeDraft(draft: RecipeDraft, shortNames = new Map<string, string>()): string {
-    const notes = draft.lines
-        .filter((l) => l.amount === null || l.scanned.note)
-        .map((l) => (l.ingredientId ? findById(db.ingredients, l.ingredientId)?.name : l.newName) + (l.scanned.note ? ": " + l.scanned.note : ""));
     const recipe: Recipe = {
         id: makeId(),
         name: findRecipeByName(draft.name) ? draft.name + " (scanned)" : draft.name,
@@ -174,8 +193,9 @@ export function saveRecipeDraft(draft: RecipeDraft, shortNames = new Map<string,
         glass: draft.glass,
         garnish: draft.garnish,
         description: draft.description,
-        directions: draft.directions + (notes.length > 0 ? (draft.directions ? "\n" : "") + "Notes: " + notes.join("; ") + "." : ""),
-        photo: draft.photo
+        directions: draft.directions,
+        photo: draft.photo,
+        createdBy: me()
     };
     if (draft.type === "Prep") {
         const makes = findById(db.ingredients, ingredientFor(draft.name))!;
@@ -188,7 +208,10 @@ export function saveRecipeDraft(draft: RecipeDraft, shortNames = new Map<string,
         db.recipeLines.push({
             id: makeId(), recipeId: recipe.id, ingredientId, subRecipeId: null,
             choicePurchaseUnitId: null, choiceRecipeId: null,
-            amount: line.amount ?? 0, unit: line.unit || "each"
+            amount: line.amount ?? 0,
+            unit: line.amount === null ? "" : line.unit || "each",
+            countWord: line.amount === null || (line.unit !== "each" && line.unit !== "") ? "" : line.countWord,
+            note: line.note
         });
     }
     commit();

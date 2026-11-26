@@ -54,6 +54,8 @@ beforeAll(async () => {
     await db.exec(readFileSync(new URL("./recipe-scanning.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./team-links.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./feedback.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("./recipes-only.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("./recipes-only.sql", import.meta.url), "utf8"));   // safe to run twice
     await db.exec(`
         insert into auth.users values
             ('${OWNER}', 'owner@bar.com', now()),
@@ -262,6 +264,98 @@ describe("invite links", () => {
         const old = (await as(OWNER, "select public.make_invite_link($1) as code", [barId])).rows[0].code as string;
         await db.exec(`update public.invite_links set expires_at = now() - interval '1 minute' where code = '${old}'`);
         await expect(as(NEWBIE2, "select public.join_with_link($1)", [old])).rejects.toThrow(/doesn't work anymore/);
+    });
+});
+
+describe("Just recipes places have no staff", () => {
+    const COOK = "00000000-0000-0000-0000-0000000000f1";
+    const AUNT = "00000000-0000-0000-0000-0000000000f2";
+    const COUSIN = "00000000-0000-0000-0000-0000000000f3";
+    let fam = "";
+    const setting = (on: boolean) => "insert into public.records (bar_id, kind, id, data) values ($1, 'placeSettings', 'place', '{\"id\":\"place\",\"recipesOnly\":" + on + "}') on conflict (bar_id, kind, id) do update set data = excluded.data";
+
+    test("turning it on makes staff managers and turns off staff links", async () => {
+        await db.exec(`insert into auth.users values ('${COOK}', 'cook@home.com', now()), ('${AUNT}', 'aunt@home.com', now()), ('${COUSIN}', 'cousin@home.com', now())`);
+        fam = (await as(COOK, "select public.create_bar('Family') as id")).rows[0].id as string;
+        const link = (await as(COOK, "select public.make_invite_link($1, 'staff') as code", [fam])).rows[0].code as string;
+        await as(AUNT, "select public.join_with_link($1)", [link]);
+        await as(COOK, "insert into public.invites (bar_id, email, role) values ($1, 'cousin@home.com', 'staff')", [fam]);
+
+        await as(COOK, setting(true), [fam]);
+        const aunt = await as(COOK, "select role from public.members where bar_id = $1 and user_id = $2", [fam, AUNT]);
+        expect(aunt.rows).toEqual([{ role: "manager" }]);
+        const invite = await as(COOK, "select role from public.invites where bar_id = $1", [fam]);
+        expect(invite.rows).toEqual([{ role: "manager" }]);
+        await expect(as(COUSIN, "select public.join_with_link($1)", [link])).rejects.toThrow(/doesn't work anymore/);
+    });
+
+    test("while on: no staff invites, links or roles; joining makes you an editor", async () => {
+        await expect(as(COOK, "insert into public.invites (bar_id, email, role) values ($1, 'x@home.com', 'staff')", [fam])).rejects.toThrow(/no staff/);
+        await expect(as(COOK, "select public.make_invite_link($1, 'staff')", [fam])).rejects.toThrow(/no staff/);
+        await expect(as(AUNT, "select public.make_invite_link($1, 'staff')", [fam])).rejects.toThrow(/no staff/);
+        await expect(as(COOK, "select public.set_member_role($1, $2, 'staff')", [fam, AUNT])).rejects.toThrow(/no staff/);
+        await as(COUSIN, "select public.accept_invites()");
+        const cousin = await as(COOK, "select role from public.members where bar_id = $1 and user_id = $2", [fam, COUSIN]);
+        expect(cousin.rows).toEqual([{ role: "manager" }]);
+    });
+
+    test("only the owner changes the setting", async () => {
+        await expect(as(AUNT, setting(false), [fam])).rejects.toThrow(/Only an owner/);
+        // A device re-sending the same setting is fine
+        await as(AUNT, "update public.records set data = data where bar_id = $1 and kind = 'placeSettings'", [fam]);
+        // Off again: everyone stays an editor, and staff work again
+        await as(COOK, setting(false), [fam]);
+        const roles = await as(COOK, "select role from public.members where bar_id = $1 order by role", [fam]);
+        expect(roles.rows.map((r) => r.role)).toEqual(["manager", "manager", "owner"]);
+        await as(COOK, "select public.make_invite_link($1, 'staff')", [fam]);
+    });
+
+    test("family edit only the recipes they added; the owner edits any", async () => {
+        await as(COOK, setting(true), [fam]);
+        const put = (who: string, kind: string, id: string, data: object | null) => as(who,
+            "insert into public.records (bar_id, kind, id, data, deleted) values ($1, $2, $3, $4, $5) on conflict (bar_id, kind, id) do update set data = excluded.data, deleted = excluded.deleted",
+            [fam, kind, id, data === null ? null : JSON.stringify(data), data === null]);
+        const momsStuffing = { id: "stuffing", name: "Stuffing", createdBy: AUNT };
+        await put(AUNT, "recipes", "stuffing", momsStuffing);
+        await put(AUNT, "ingredients", "onion", { id: "onion", name: "Onion" });
+        await put(AUNT, "recipeLines", "l1", { id: "l1", recipeId: "stuffing", ingredientId: "onion", amount: 2 });
+
+        // Someone else's recipe: no changes, no lines, no deleting, no claiming it
+        await expect(put(COUSIN, "recipes", "stuffing", { ...momsStuffing, name: "Better stuffing" })).rejects.toThrow(/recipes you added/);
+        await expect(put(COUSIN, "recipes", "stuffing", { ...momsStuffing, createdBy: COUSIN })).rejects.toThrow(/recipes you added/);
+        await expect(put(COUSIN, "recipes", "stuffing", null)).rejects.toThrow(/recipes you added/);
+        await expect(put(COUSIN, "recipeLines", "l2", { id: "l2", recipeId: "stuffing", ingredientId: "onion", amount: 5 })).rejects.toThrow(/recipes you added/);
+        await expect(put(COUSIN, "recipeLines", "l1", { id: "l1", recipeId: "stuffing", ingredientId: "onion", amount: 9 })).rejects.toThrow(/recipes you added/);
+        await expect(put(COUSIN, "recipes", "fake", { id: "fake", name: "Fake", createdBy: AUNT })).rejects.toThrow(/has to be yours/);
+        await expect(put(COUSIN, "ingredients", "onion", { id: "onion", name: "Shallot" })).rejects.toThrow(/rename/);
+
+        // Their own version is fine, and re-sending what's there is fine
+        await put(COUSIN, "recipes", "stuffing-c", { ...momsStuffing, id: "stuffing-c", name: "Stuffing (Sarah's Version)", createdBy: COUSIN });
+        await put(COUSIN, "recipeLines", "l3", { id: "l3", recipeId: "stuffing-c", ingredientId: "onion", amount: 3 });
+        await put(COUSIN, "recipes", "stuffing", momsStuffing);
+
+        // The owner edits anyone's; the one who added it edits and deletes it (lines go too)
+        await put(COOK, "recipes", "stuffing", { ...momsStuffing, name: "Mom's Stuffing" });
+        await put(AUNT, "recipeLines", "l1", { id: "l1", recipeId: "stuffing", ingredientId: "onion", amount: 3 });
+        await put(AUNT, "recipes", "stuffing", null);
+        await put(AUNT, "recipeLines", "l1", null);
+        const left = await as(COOK, "select id from public.records where bar_id = $1 and kind = 'recipes' and not deleted order by id", [fam]);
+        expect(left.rows.map((r) => r.id)).toEqual(["stuffing-c"]);
+    });
+
+    test("names carry across places", async () => {
+        await as(AUNT, "select public.set_my_name('Aunt Jo')");
+        const names = await as(COOK, "select display_name from public.members where bar_id = $1 and user_id = $2", [fam, AUNT]);
+        expect(names.rows).toEqual([{ display_name: "Aunt Jo" }]);
+        const second = (await as(AUNT, "select public.create_bar('Jo''s recipes') as id")).rows[0].id as string;
+        const mine = await as(AUNT, "select display_name from public.members where bar_id = $1", [second]);
+        expect(mine.rows).toEqual([{ display_name: "Aunt Jo" }]);
+        await expect(as(STRANGER, "update public.members set display_name = 'x'")).rejects.toThrow();
+    });
+
+    test("a bar is untouched", async () => {
+        const staff = await as(OWNER, "select role from public.members where bar_id = $1 and user_id = $2", [barId, STAFF]);
+        expect(staff.rows).toEqual([{ role: "staff" }]);
     });
 });
 

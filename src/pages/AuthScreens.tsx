@@ -182,32 +182,34 @@ export function NewPasswordScreen() {
 
 // ===== Signed in, but not in a bar yet =====
 
-export function BarSetupScreen() {
-    const session = useSession();
-    const deviceHasData = hasDeviceData();
+// The form for a new place: what it's for, its name, what it starts with
+//     used here (first place) and on "Start a new place" (another one)
+//     A bar/restaurant/brewery -> costing, stock, sales; can start with sample data
+//     Family or personal       -> just recipes; starts empty
+export function PlaceSetupForm({ onCancel, onDone }: { onCancel?: () => void; onDone?: () => void }) {
+    const deviceHasData = hasDeviceData() && !onCancel;    // only offered for a first place
+    const [kind, setKind] = useState<"business" | "family">("business");
     const [name, setName] = useState("");
     const [start, setStart] = useState<StartWith>(deviceHasData ? "device" : "empty");
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
+    const family = kind === "family";
 
     async function submit(event: FormEvent) {
         event.preventDefault();
         if (name.trim() === "") return setError("Give your place a name.");
         setBusy(true);
-        const result = await createBar(name, start);
+        const result = await createBar(name, family ? "empty" : start, family);
         if (result) {
             setError(result);
             setBusy(false);
-        }
+        } else onDone?.();
     }
 
-    // Check again for an invite (after a manager sends one)
-    async function checkInvites() {
-        setBusy(true);
-        await supabase!.rpc("accept_invites");
-        location.reload();
-    }
-
+    const kinds = [
+        { value: "business" as const, label: "A bar, restaurant or brewery", note: "Recipes with costs, menus, stock counts, invoices and sales." },
+        { value: "family" as const, label: "Family or personal recipes", note: "Just the recipes: scan them, share them, cook from them. No costs." }
+    ];
     const options: { value: StartWith; label: string; note: string; show: boolean }[] = [
         { value: "device", label: "What I set up on this device", note: "Bring along the recipes and products you made before signing up.", show: deviceHasData },
         { value: "empty", label: "Nothing", note: "Start fresh, or import a price list from Backup & export.", show: true },
@@ -215,12 +217,21 @@ export function BarSetupScreen() {
     ];
 
     return (
-        <AuthCard title="Set up your place" subtitle={"Signed in as " + session.email + "."}>
-            <form className="auth-form" onSubmit={submit}>
-                <label className="form-field">
-                    <span>Bar, restaurant or brewery name</span>
-                    <input required maxLength={100} value={name} placeholder="Shady's Corner" onChange={(e) => setName(e.target.value)} />
-                </label>
+        <form className="auth-form" onSubmit={submit}>
+            <fieldset className="start-options">
+                <legend>What's it for?</legend>
+                {kinds.map((k) => (
+                    <label key={k.value} className={"start-option" + (kind === k.value ? " chosen" : "")}>
+                        <input type="radio" name="kind" value={k.value} checked={kind === k.value} onChange={() => setKind(k.value)} />
+                        <span><strong>{k.label}</strong><span className="muted small">{k.note}</span></span>
+                    </label>
+                ))}
+            </fieldset>
+            <label className="form-field">
+                <span>{family ? "Name" : "Bar, restaurant or brewery name"}</span>
+                <input required maxLength={100} value={name} placeholder={family ? "Family recipes" : "Shady's Corner"} onChange={(e) => setName(e.target.value)} />
+            </label>
+            {!family && (
                 <fieldset className="start-options">
                     <legend>Start with</legend>
                     {options.filter((o) => o.show).map((o) => (
@@ -230,12 +241,33 @@ export function BarSetupScreen() {
                         </label>
                     ))}
                 </fieldset>
-                {error && <p className="error" role="alert">{error}</p>}
+            )}
+            {error && <p className="error" role="alert">{error}</p>}
+            <div className="button-row">
                 <button type="submit" disabled={busy}>{busy ? "Setting up…" : "Set it up"}</button>
-            </form>
+                {onCancel && <button type="button" className="secondary" disabled={busy} onClick={onCancel}>Cancel</button>}
+            </div>
+        </form>
+    );
+}
+
+export function BarSetupScreen() {
+    const session = useSession();
+    const [busy, setBusy] = useState(false);
+
+    // Check again for an invite (after someone sends one)
+    async function checkInvites() {
+        setBusy(true);
+        await supabase!.rpc("accept_invites");
+        location.reload();
+    }
+
+    return (
+        <AuthCard title="Set up your place" subtitle={"Signed in as " + session.email + "."}>
+            <PlaceSetupForm />
             <div className="auth-invite">
                 <p className="muted small">
-                    Joining a team instead? Ask your manager for their invite link or QR code, or to invite <strong>{session.email}</strong>, then:
+                    Joining someone else's place instead? Ask them for their invite link or QR code, or to invite <strong>{session.email}</strong>, then:
                 </p>
                 <div className="button-row">
                     <button className="secondary" disabled={busy} onClick={checkInvites}>I've been invited</button>

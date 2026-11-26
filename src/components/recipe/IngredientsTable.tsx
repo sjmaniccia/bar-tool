@@ -16,6 +16,7 @@ import {
 } from "../../data/costing";
 import { addLine, findIngredientByName, getOrCreateIngredient, removeLine, setLineChoice, updateLine } from "../../data/actions";
 import AmountInput from "../AmountInput";
+import { unitLabel } from "../../data/lineText";
 
 const RECIPE_PREFIX = "Recipe: ";
 
@@ -71,12 +72,15 @@ function LineRow({ line }: { line: RecipeLine }) {
             </td>
             <td className="unit">
                 <select value={line.unit} aria-label="Unit" onChange={(e) => updateLine(line.id, { unit: e.target.value })}>
-                    {unitsForLine(line).map((u) => <option key={u}>{u}</option>)}
+                    {unitsForLine(line).map((u) => <option key={u} value={u}>{unitLabel(u)}</option>)}
                 </select>
             </td>
             <td className="name">
                 <strong>{ingredient?.name ?? sub?.name ?? "?"}</strong>
                 {sub && <span className="tag">recipe</span>}
+                {(line.countWord || line.note) && (
+                    <div className="muted small">{[line.countWord && "count of " + line.countWord, line.note].filter(Boolean).join(" · ")}</div>
+                )}
                 {linkedRecipe && (
                     <div><Link to={"/recipes/" + linkedRecipe.id} className="small">Open recipe →</Link></div>
                 )}
@@ -177,7 +181,7 @@ function AddRow({ recipe }: { recipe: Recipe }) {
                     </datalist>
                     <input className="qty-input" placeholder="1 1/2" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} aria-label="Amount" />
                     <select value={unit} onChange={(e) => setUnit(e.target.value)} aria-label="Unit">
-                        {PURCHASE_UNITS.concat("serving").map((u) => <option key={u}>{u}</option>)}
+                        {PURCHASE_UNITS.concat("serving").map((u) => <option key={u} value={u}>{unitLabel(u)}</option>)}
                     </select>
                     <button type="submit">+ Add</button>
                 </form>

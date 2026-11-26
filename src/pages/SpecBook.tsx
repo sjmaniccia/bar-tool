@@ -3,11 +3,12 @@
 // garnish and method, the way staff learn them. No costs on it, so it can
 // go behind the bar. Each recipe starts on its own half page when printed.
 
+import { amountText } from "../data/lineText";
 import { Link, useParams } from "react-router";
 import { useDb } from "../data/storage";
 import { menuRows } from "../data/menus";
 import { linesFor } from "../data/costing";
-import { findById, formatFraction } from "../data/utils";
+import { findById } from "../data/utils";
 import { useSession } from "../cloud/session";
 import { canEdit } from "../cloud/access";
 
@@ -55,8 +56,8 @@ export default function SpecBook() {
                                 : findById(db.recipes, line.subRecipeId)?.name;
                             return (
                                 <li key={line.id}>
-                                    <span className="spec-amount">{formatFraction(line.amount)} {line.unit}</span>
-                                    <span>{name ?? "?"}</span>
+                                    <span className="spec-amount">{amountText(line.amount > 0 ? line : { ...line, amount: null })}</span>
+                                    <span>{name ?? "?"}{line.note ? (line.amount > 0 ? ", " : " ") + line.note : ""}</span>
                                 </li>
                             );
                         })}

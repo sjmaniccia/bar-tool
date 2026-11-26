@@ -9,6 +9,7 @@ import type { Role } from "./sync";
 export interface Member {
     userId: string;
     email: string;
+    name: string;           // what they call themselves ("Mom"), "" = not set (recipes-only.sql)
     role: Role;
     joinedAt: string;
 }
@@ -21,9 +22,22 @@ export interface Invite {
 }
 
 export async function listMembers(barId: string): Promise<Member[]> {
-    const { data, error } = await supabase!.from("members").select("user_id, email, role, joined_at").eq("bar_id", barId).order("joined_at");
+    const { data, error } = await supabase!.from("members").select("*").eq("bar_id", barId).order("joined_at");
     if (error) throw error;
-    return data.map((m) => ({ userId: m.user_id, email: m.email, role: m.role, joinedAt: m.joined_at }));
+    return data.map((m) => ({ userId: m.user_id, email: m.email, name: m.display_name ?? "", role: m.role, joinedAt: m.joined_at }));
+}
+
+// The name others see on recipes I add ("Added by Mom"), in every place I'm in
+export async function setMyName(name: string): Promise<string | null> {
+    const { error } = await supabase!.rpc("set_my_name", { new_name: name });
+    return error ? error.message : null;
+}
+
+// What to call someone: their name, or the start of their email ("sarah" from sarah@…)
+export function nameOf(member: Pick<Member, "name" | "email">): string {
+    if (member.name) return member.name;
+    const start = member.email.split("@")[0].replace(/[._-]+/g, " ").trim();
+    return start.charAt(0).toUpperCase() + start.slice(1);
 }
 
 // Only owners and managers can see invites (others get an empty list)

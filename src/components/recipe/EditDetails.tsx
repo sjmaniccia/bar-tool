@@ -1,6 +1,7 @@
 // ===== EditDetails.tsx =====
 // The "Edit details" form at the top of a recipe: name, type, yield, menu price,
 // what it makes, and the training details (glass, garnish, description, directions).
+// A "Just recipes" place: name, serves, notes and directions only.
 
 import { useState, type FormEvent } from "react";
 import type { Recipe, RecipeType } from "../../data/types";
@@ -15,9 +16,10 @@ const TYPES: RecipeType[] = ["Cocktail", "Dish", "Beer", "Prep"];
 interface Props {
     recipe: Recipe;
     onDone: () => void;   // called after Save or Cancel
+    recipesOnly?: boolean;
 }
 
-export default function EditDetails({ recipe, onDone }: Props) {
+export default function EditDetails({ recipe, onDone, recipesOnly = false }: Props) {
     // The form keeps its own copy while typing, and saves it all at once
     const makes = findById(db.ingredients, recipe.producesIngredientId);
     const [form, setForm] = useState({
@@ -47,7 +49,7 @@ export default function EditDetails({ recipe, onDone }: Props) {
         const yieldAmount = parseAmount(form.yieldAmount);
         const menuPrice = form.menuPrice.trim() === "" ? null : parseFloat(form.menuPrice);
         if (form.name.trim() === "") return setError("Give the recipe a name.");
-        if (isNaN(yieldAmount) || yieldAmount <= 0) return setError("Enter how much it makes, like 1 or 1 1/2.");
+        if (isNaN(yieldAmount) || yieldAmount <= 0) return setError(recipesOnly ? "Enter how many it serves, like 4." : "Enter how much it makes, like 1 or 1 1/2.");
         if (menuPrice !== null && (isNaN(menuPrice) || menuPrice < 0)) return setError("Enter a valid menu price, or leave it blank.");
 
         let producesIngredientId: string | null = null;
@@ -63,7 +65,7 @@ export default function EditDetails({ recipe, onDone }: Props) {
             name: form.name.trim(),
             type: form.type as RecipeType,
             yieldAmount,
-            yieldUnit: form.yieldUnit,
+            yieldUnit: recipesOnly ? "serving" : form.yieldUnit,
             menuPrice,
             producesIngredientId,
             glass: form.glass.trim(),
@@ -81,35 +83,43 @@ export default function EditDetails({ recipe, onDone }: Props) {
                 <label className="span-2">Name
                     <input value={form.name} onChange={(e) => set("name", e.target.value)} autoFocus />
                 </label>
-                <label>Type
-                    <select value={form.type} onChange={(e) => set("type", e.target.value)}>
-                        {TYPES.map((t) => <option key={t}>{t}</option>)}
-                    </select>
-                </label>
-                <label>Menu price per serving ($)
-                    <input value={form.menuPrice} inputMode="decimal" placeholder="Not sold" onChange={(e) => set("menuPrice", e.target.value)} />
-                </label>
-                <label>Makes
-                    <input value={form.yieldAmount} inputMode="decimal" onChange={(e) => set("yieldAmount", e.target.value)} />
-                </label>
-                <label>Yield unit
-                    <select value={form.yieldUnit} onChange={(e) => set("yieldUnit", e.target.value)}>
-                        {YIELD_UNITS.map((u) => <option key={u}>{u}</option>)}
-                    </select>
-                </label>
-                <label className="span-2">Makes ingredient (for preps like "Lime juice")
-                    <input value={form.makes} list="ingredient-name-list" placeholder="Optional" onChange={(e) => set("makes", e.target.value)} />
-                    <datalist id="ingredient-name-list">
-                        {db.ingredients.map((i) => <option key={i.id} value={i.name} />)}
-                    </datalist>
-                </label>
-                <label>Glass
-                    <input value={form.glass} placeholder="Coupe" onChange={(e) => set("glass", e.target.value)} />
-                </label>
-                <label>Garnish
-                    <input value={form.garnish} placeholder="Lime wheel" onChange={(e) => set("garnish", e.target.value)} />
-                </label>
-                <label className="span-2">Description (the story, for staff)
+                {recipesOnly ? (
+                    <label>Serves
+                        <input value={form.yieldAmount} inputMode="decimal" onChange={(e) => set("yieldAmount", e.target.value)} />
+                    </label>
+                ) : (
+                    <>
+                        <label>Type
+                            <select value={form.type} onChange={(e) => set("type", e.target.value)}>
+                                {TYPES.map((t) => <option key={t}>{t}</option>)}
+                            </select>
+                        </label>
+                        <label>Menu price per serving ($)
+                            <input value={form.menuPrice} inputMode="decimal" placeholder="Not sold" onChange={(e) => set("menuPrice", e.target.value)} />
+                        </label>
+                        <label>Makes
+                            <input value={form.yieldAmount} inputMode="decimal" onChange={(e) => set("yieldAmount", e.target.value)} />
+                        </label>
+                        <label>Yield unit
+                            <select value={form.yieldUnit} onChange={(e) => set("yieldUnit", e.target.value)}>
+                                {YIELD_UNITS.map((u) => <option key={u}>{u}</option>)}
+                            </select>
+                        </label>
+                        <label className="span-2">Makes ingredient (for preps like "Lime juice")
+                            <input value={form.makes} list="ingredient-name-list" placeholder="Optional" onChange={(e) => set("makes", e.target.value)} />
+                            <datalist id="ingredient-name-list">
+                                {db.ingredients.map((i) => <option key={i.id} value={i.name} />)}
+                            </datalist>
+                        </label>
+                        <label>Glass
+                            <input value={form.glass} placeholder="Coupe" onChange={(e) => set("glass", e.target.value)} />
+                        </label>
+                        <label>Garnish
+                            <input value={form.garnish} placeholder="Lime wheel" onChange={(e) => set("garnish", e.target.value)} />
+                        </label>
+                    </>
+                )}
+                <label className="span-2">{recipesOnly ? "Notes (where it's from, tips)" : "Description (the story, for staff)"}
                     <textarea rows={2} value={form.description} onChange={(e) => set("description", e.target.value)} />
                 </label>
                 <label className="span-2">Directions

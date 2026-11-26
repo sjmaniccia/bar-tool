@@ -5,6 +5,8 @@
 import { db, commit } from "./storage";
 import { findById, makeId } from "./utils";
 import type { Ingredient, Recipe, RecipeLine } from "./types";
+import { isRecipesOnly } from "./place";
+import { me } from "./me";
 
 
 // ===== Ingredients =====
@@ -32,7 +34,7 @@ export function createRecipe(name: string): string {
     const recipe: Recipe = {
         id: makeId(),
         name: name.trim() || "New recipe",
-        type: "Cocktail",
+        type: isRecipesOnly() ? "Dish" : "Cocktail",      // a family's recipes are dishes
         yieldAmount: 1,
         yieldUnit: "serving",
         menuPrice: null,
@@ -43,7 +45,8 @@ export function createRecipe(name: string): string {
         garnish: "",
         description: "",
         directions: "",
-        photo: ""
+        photo: "",
+        createdBy: me()
     };
     db.recipes.push(recipe);
     commit();
@@ -63,13 +66,30 @@ export function updateRecipe(recipeId: string, changes: Partial<Recipe>) {
 export function duplicateRecipe(recipeId: string): string | null {
     const recipe = findById(db.recipes, recipeId);
     if (recipe === null) return null;
-    const copy: Recipe = { ...recipe, id: makeId(), name: recipe.name + " (copy)", producesIngredientId: null };
+    const copy: Recipe = { ...recipe, id: makeId(), name: recipe.name + " (copy)", producesIngredientId: null, createdBy: me() };
     db.recipes.push(copy);
     for (const line of db.recipeLines.filter((l) => l.recipeId === recipeId)) {
         db.recipeLines.push({ ...line, id: makeId(), recipeId: copy.id });
     }
     commit();
     return copy.id;
+}
+
+// "Make my version" (Just recipes): a copy that's mine to change
+//     "Grandma's Stuffing" -> "Grandma's Stuffing (Sarah's Version)"
+//     a version of a version doesn't stack: "... (Mom's Version)" -> "... (Sarah's Version)"
+export function makeMyVersion(recipeId: string, myName: string): string | null {
+    const recipe = findById(db.recipes, recipeId);
+    if (recipe === null) return null;
+    const id = duplicateRecipe(recipeId)!;
+    updateRecipe(id, { name: versionName(recipe.name, myName) });
+    return id;
+}
+
+export function versionName(name: string, myName: string): string {
+    const base = name.replace(/\s*\([^()]*'s Version\)\s*$/i, "").trim();
+    const who = myName.trim() || "My";
+    return base + " (" + (who === "My" ? "My" : who + "'s") + " Version)";
 }
 
 // How many lines in other recipes use this one as a sub-recipe
@@ -108,7 +128,7 @@ export function addLine(recipeId: string, ingredientId: string | null, subRecipe
     } else {
         db.recipeLines.push({
             id: makeId(), recipeId, ingredientId, subRecipeId,
-            choicePurchaseUnitId: null, choiceRecipeId: null, amount, unit
+            choicePurchaseUnitId: null, choiceRecipeId: null, amount, unit, countWord: "", note: ""
         });
     }
     commit();

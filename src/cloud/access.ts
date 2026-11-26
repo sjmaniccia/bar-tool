@@ -9,7 +9,9 @@
 import type { Role } from "./sync";
 
 // Page addresses staff can open (":" parts match anything)
-const STAFF_PAGES = ["/counts", "/counts/:id", "/waste", "/training", "/classics", "/specs", "/menus/:id/specs"];
+//     plus their own account things: feedback, account, starting a place of their own
+const STAFF_PAGES = ["/counts", "/counts/:id", "/waste", "/training", "/classics", "/specs", "/menus/:id/specs",
+    "/feedback", "/account", "/places/new"];
 
 export function canOpen(path: string, role: Role | null): boolean {
     if (role !== "staff") return true;

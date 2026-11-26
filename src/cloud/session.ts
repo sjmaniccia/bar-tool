@@ -10,6 +10,7 @@
 //     no-bar         signed in but not in a bar yet: create one or wait for an invite
 //     ready          signed in with a bar open and syncing
 
+import { setMe } from "../data/me";
 import { APP_LINK, isNative, onAppLink } from "../native";
 import { useSyncExternalStore } from "react";
 import type { User } from "@supabase/supabase-js";
@@ -127,6 +128,7 @@ let recovering = false;
 async function signedIn(user: User) {
     if (recovering) return;
     set({ mode: "loading", email: user.email ?? "", userId: user.id });
+    setMe(user.id);
     await supabase!.rpc("accept_invites");
     if (recovering) return;
     const joinCode = read(JOIN_KEY);
@@ -196,7 +198,7 @@ async function openBar(bar: BarInfo, startWith: Database | null = null) {
     engine?.stop();
     write(BAR_KEY, bar.id);
     showData(emptyData());
-    const next = new SyncEngine(supabaseTransport, port, bar.id, bar.role);
+    const next = new SyncEngine(supabaseTransport, port, bar.id, bar.role, session.userId);
     next.onStatus = (sync) => set({ sync });
     engine = next;
     setSaveHook(() => next.changed());
@@ -216,14 +218,19 @@ export async function switchBar(barId: string) {
 
 export type StartWith = "empty" | "sample" | "device";
 
-// Make a new bar, with me as owner, and open it
-export async function createBar(name: string, startWith: StartWith): Promise<string | null> {
+// Make a new place, with me as owner, and open it
+//     recipesOnly -> a family's recipes: starts empty with costing hidden (data/place.ts)
+export async function createBar(name: string, startWith: StartWith, recipesOnly = false): Promise<string | null> {
     const { data, error } = await supabase!.rpc("create_bar", { bar_name: name });
     if (error) return error.message;
     const bars = await loadBars();
     set({ bars });
     const bar = bars.find((b) => b.id === data)!;
-    const start = startWith === "sample" ? sampleData() : startWith === "device" ? deviceData() : null;
+    let start = startWith === "sample" ? sampleData() : startWith === "device" ? deviceData() : null;
+    if (recipesOnly) {
+        start = emptyData();
+        start.placeSettings.push({ id: "place", recipesOnly: true });
+    }
     await openBar(bar, start);
     return null;
 }
@@ -322,6 +329,7 @@ function signedOutLocally() {
     remove(BAR_KEY);
     showData(deviceData());
     set({ mode: "signed-out", email: "", userId: "", bars: [], bar: null });
+    setMe("");
 }
 
 // Use the app without an account (data stays in this browser)

@@ -29,6 +29,7 @@ Then, the same way, each in its own new query, once:
 | `supabase/team-links.sql` | Invite links and QR codes (staff join by scanning) |
 | `supabase/feedback.sql` | The suggestion box: read messages in Table Editor > feedback |
 | `supabase/recipe-photos.sql` | Recipe pictures (a storage bucket, managers can add) |
+| `supabase/recipes-only.sql` | "Just recipes" places: no staff, family change only their own recipes, names for "Added by". Safe to run again |
 | `supabase/pos.sql` | Square (see SETUP-SQUARE.md) |
 | `supabase/scanning.sql`, then `supabase/recipe-scanning.sql` | Scan limits (see SETUP-SCANNING.md) |
 

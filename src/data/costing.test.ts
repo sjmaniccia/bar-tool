@@ -66,7 +66,7 @@ describe("daiquiri", () => {
 describe("missing prices and loops", () => {
     test("an ingredient with no sources is listed as missing", () => {
         db.recipeLines.push({ id: "x", recipeId: "r-daiquiri", ingredientId: "i-new", subRecipeId: null,
-            choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz" });
+            choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz", countWord: "", note: "" });
         db.ingredients.push({ id: "i-new", name: "Mint", housePurchaseUnitId: null, houseRecipeId: null });
         expect(summarize(recipe("r-daiquiri")).missing).toEqual(["Mint"]);
     });

@@ -1,5 +1,5 @@
 // ===== recipe-scan.ts =====
-// What Claude is asked to pull off a page of a bar's recipe book, and the clean-up after.
+// What Claude is asked to pull off a page of a recipe book, card or spec sheet, and the clean-up after.
 // No network in here, so the app's tests can check it.
 //
 // One photo can hold several recipes (a spec sheet) or one recipe with a picture.
@@ -7,6 +7,8 @@
 //     amounts become numbers ("1 1/2" -> 1.5, "¾" -> 0.75)
 //     units become Agave's units ("oz" in a drink -> "fl oz", "dashes" -> "dash")
 //     "top with soda", "splash", "to taste" -> no amount, the word kept as a note
+//     counted things keep their word: "3 cloves garlic" -> 3 each, count word "clove"
+//     a number with no unit ("2 onions") -> a count, marked so the person checks it
 //     recipes with no name and no ingredients are dropped
 
 export type ScannedRecipeType = "Cocktail" | "Dish" | "Beer" | "Prep";
@@ -14,8 +16,10 @@ export type ScannedRecipeType = "Cocktail" | "Dish" | "Beer" | "Prep";
 export interface ScannedIngredient {
     amount: number | null;     // null = "top", "splash", "to taste"
     unit: string;              // one of RECIPE_UNITS, or "" with no amount
+    countWord: string;         // with "each": what's counted, singular ("clove", "can"); "" = the thing itself
+    unitGuessed: boolean;      // no unit was written, so it's taken as a count: ask the person
     name: string;              // as printed: "Tito's", "fresh lime juice"
-    note: string;              // "top", "rinse", "fresh", "chilled"...
+    note: string;              // "top", "rinse", "chopped", "to taste"...
 }
 
 export interface ScannedRecipe {
@@ -28,6 +32,7 @@ export interface ScannedRecipe {
     menuPrice: number | null;
     yieldAmount: number;       // 1 serving for a drink; a batch size for a prep recipe
     yieldUnit: string;
+    serves: number | null;     // "Serves 8"; null = not written
     ingredients: ScannedIngredient[];
     hasPhoto: boolean;         // the page has a picture of this one
     photoBox: PhotoBox | null; // where that picture is on the photo, so the app can cut it out
@@ -67,6 +72,7 @@ export const RECIPE_TOOL = {
                         menu_price: { type: "number" },
                         yield_amount: { type: "number", description: "For prep recipes, how much one batch makes" },
                         yield_unit: { type: "string", enum: RECIPE_UNITS },
+                        serves: { type: "number", description: "How many people it serves or how many servings it makes, if written (Serves 8 = 8)" },
                         has_photo: { type: "boolean", description: "Is there a picture of this recipe (the drink or dish) on the page?" },
                         photo_box: {
                             type: "object",
@@ -79,9 +85,10 @@ export const RECIPE_TOOL = {
                                 type: "object",
                                 properties: {
                                     amount: { type: "number", description: "As a decimal: 1 1/2 = 1.5, 3/4 = 0.75. Leave out for top, splash, rinse or to taste." },
-                                    unit: { type: "string", enum: [...RECIPE_UNITS, ""] },
+                                    unit: { type: "string", enum: [...RECIPE_UNITS, ""], description: "Empty when no unit is written (2 onions)" },
+                                    count_word: { type: "string", description: "With unit each: the word for what's counted, singular (3 cloves garlic = clove; 1 can soup = can; 2 sticks butter = stick). Empty when the thing itself is counted (2 onions)." },
                                     name: { type: "string", description: "The ingredient as written, including brand" },
-                                    note: { type: "string", description: "top, splash, rinse, to taste, fresh..." }
+                                    note: { type: "string", description: "As written after it: chopped, minced, softened, to taste, top, splash, rinse..." }
                                 },
                                 required: ["name"]
                             }
@@ -96,9 +103,11 @@ export const RECIPE_TOOL = {
 };
 
 export const RECIPE_INSTRUCTIONS = [
-    "This photo is a page from a bar or restaurant's recipe book or spec sheet. It may hold one recipe or several.",
+    "This photo is a page from a recipe book, a recipe card or a bar's spec sheet: a family recipe, a restaurant dish or a drink. It may hold one recipe or several.",
     "Call record_recipes with EVERY recipe on the page, in order. Copy names, ingredients, brands and amounts exactly as written; don't invent or 'fix' anything.",
-    "Units: in drinks, oz means fl oz. Ounces of solid food are oz (wt). Use dash for dashes, barspoon for bar spoons, each for whole items (2 mint sprigs = 2 each).",
+    "Units: in drinks, oz means fl oz. Ounces of solid food are oz (wt). Use dash for dashes, barspoon for bar spoons.",
+    "Counted things: unit each, with what's counted in count_word (3 cloves garlic: amount 3, unit each, count_word clove, name garlic; 1 can cream of mushroom soup: count_word can). If a number has no unit at all (2 onions), leave unit empty.",
+    "Put preparation words after an ingredient (chopped, minced, softened) in note, not in name. A dish's type is Dish; family recipes are Dish too unless they're a drink.",
     "cl is 10 ml: convert cl to ml. If an amount is 'top', 'splash', 'rinse' or 'to taste', leave amount out and put that word in note.",
     "Garnish and glass go in their own fields, not in ingredients, unless the garnish is clearly measured (like 3 each blackberries).",
     "If a recipe has a picture of the finished drink or dish, set has_photo and give photo_box around just that picture.",
@@ -141,6 +150,30 @@ export function unitOf(value: unknown, amount: number | null): string {
     return UNIT_WORDS[text.toLowerCase()] ?? "each";
 }
 
+// "cloves" -> "clove", "bunches" -> "bunch", "leaves" -> "leaf": the app adds the s back
+export function singular(word: string): string {
+    const w = word.trim().toLowerCase();
+    if (/(lea|loa|hal)ves$/.test(w)) return w.slice(0, -3) + "f";
+    if (/(ch|sh|x|ss)es$/.test(w)) return w.slice(0, -2);
+    if (/[^s]s$/.test(w)) return w.slice(0, -1);
+    return w;
+}
+
+// What a counted line counts, and whether the count is only a guess
+//     unit written as a count word ("cloves", "sprigs") -> that word
+//     count_word given -> that word
+//     no unit written at all -> the thing itself, and ask (unitGuessed)
+export function countOf(rawUnit: unknown, rawCountWord: unknown, amount: number | null): { countWord: string; unitGuessed: boolean } {
+    if (amount === null) return { countWord: "", unitGuessed: false };
+    const unit = typeof rawUnit === "string" ? rawUnit.trim().toLowerCase() : "";
+    const given = typeof rawCountWord === "string" ? rawCountWord.trim() : "";
+    if (given) return { countWord: singular(given), unitGuessed: false };
+    if (unit === "") return { countWord: "", unitGuessed: true };
+    if (["each", "ea", "piece", "pieces", "whole"].includes(unit)) return { countWord: "", unitGuessed: false };
+    // any other word ("cans", "sprigs", "bunch"): it names what's counted
+    return { countWord: singular(unit), unitGuessed: false };
+}
+
 const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
 
 // A usable box: numbers inside the image, not tiny (a smudge), else null
@@ -174,7 +207,9 @@ export function cleanRecipes(raw: unknown): { recipes: ScannedRecipe[]; warnings
             const name = text(g.name);
             if (name === "") continue;
             const amount = amountOf(g.amount);
-            ingredients.push({ amount, unit: unitOf(g.unit, amount), name, note: text(g.note) });
+            const unit = unitOf(g.unit, amount);
+            const count = unit === "each" ? countOf(g.unit, g.count_word, amount) : { countWord: "", unitGuessed: false };
+            ingredients.push({ amount, unit, countWord: count.countWord, unitGuessed: count.unitGuessed, name, note: text(g.note) });
         }
         const name = text(x.name);
         if (name === "" && ingredients.length === 0) continue;
@@ -187,6 +222,7 @@ export function cleanRecipes(raw: unknown): { recipes: ScannedRecipe[]; warnings
             menuPrice: price,
             yieldAmount: yieldAmount ?? 1,
             yieldUnit: yieldAmount !== null && RECIPE_UNITS.includes(text(x.yield_unit)) ? text(x.yield_unit) : "serving",
+            serves: typeof x.serves === "number" && x.serves > 0 && x.serves < 1000 ? Math.round(x.serves) : null,
             ingredients,
             hasPhoto: x.has_photo === true,
             photoBox: x.has_photo === true ? boxOf(x.photo_box) : null

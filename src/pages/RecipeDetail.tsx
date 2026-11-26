@@ -4,18 +4,27 @@
 //     yield and labor | training details | cost breakdown
 //     costing summary (menu price, ingredient, labor, total, profit, suggested)
 //     ingredients table (edit in place, add at the bottom)
+// A "Just recipes" place: picture, name, serves, the ingredient lines (pencil to edit),
+// notes and directions. No costs, yield/labor or training.
 
+import type { Recipe, RecipeLine } from "../data/types";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router";
 import { useDb } from "../data/storage";
 import { findById, formatFraction, formatMoney } from "../data/utils";
 import { linesFor, summarize, type RecipeSummary } from "../data/costing";
-import { deleteRecipe, duplicateRecipe, linesUsingRecipe, updateRecipe } from "../data/actions";
+import { deleteRecipe, duplicateRecipe, linesUsingRecipe, makeMyVersion, updateRecipe } from "../data/actions";
 import EditDetails from "../components/recipe/EditDetails";
 import CostingSummary from "../components/recipe/CostingSummary";
 import CostBreakdown from "../components/recipe/CostBreakdown";
 import IngredientsTable from "../components/recipe/IngredientsTable";
 import AmountInput from "../components/AmountInput";
 import RecipePhoto from "../components/recipe/RecipePhoto";
+import RecipeLines from "../components/recipe/RecipeLines";
+import { useRecipesOnly } from "../data/place";
+import { useMyName, useRecipeRights } from "../cloud/names";
+import { nameOf } from "../cloud/team";
+import { useSession } from "../cloud/session";
+import { toast } from "../feedback";
 
 export default function RecipeDetail() {
     const db = useDb();
@@ -23,6 +32,7 @@ export default function RecipeDetail() {
     const { recipeId } = useParams();                       // from the address: #/recipes/<recipeId>
     const [searchParams, setSearchParams] = useSearchParams();
     const editing = searchParams.get("edit") === "1";       // #/recipes/<id>?edit=1 opens the form
+    const recipesOnly = useRecipesOnly();
 
     const recipe = findById(db.recipes, recipeId ?? null);
     if (recipe === null) {
@@ -69,6 +79,10 @@ export default function RecipeDetail() {
         if (confirm("Delete " + recipe!.name + "?" + warning) && deleteRecipe(recipe!.id)) {
             navigate("/recipes");
         }
+    }
+
+    if (recipesOnly) {
+        return <FamilyRecipe recipe={recipe} lines={lines} editing={editing} setEditing={setEditing} remove={remove} />;
     }
 
     return (
@@ -151,6 +165,80 @@ export default function RecipeDetail() {
                         </section>
                     </div>
                 </>
+            )}
+        </div>
+    );
+}
+
+
+// ===== Just recipes =====
+// Serves and who added it, the lines, directions.
+// Mine (or I'm the owner): edit, delete, change the picture.
+// Someone else's: read it; at the bottom, "Make my version" (a copy that's mine) or Print.
+interface FamilyProps {
+    recipe: Recipe;
+    lines: RecipeLine[];
+    editing: boolean;
+    setEditing: (on: boolean) => void;
+    remove: () => void;
+}
+
+function FamilyRecipe({ recipe, lines, editing, setEditing, remove }: FamilyProps) {
+    const navigate = useNavigate();
+    const session = useSession();
+    const { canEdit, addedBy } = useRecipeRights(recipe);
+    const myName = useMyName() || nameOf({ name: "", email: session.email });
+    const sub = [
+        recipe.yieldUnit === "serving" && recipe.yieldAmount > 1 && "Serves " + formatFraction(recipe.yieldAmount),
+        addedBy && "Added by " + addedBy
+    ].filter(Boolean).join(" · ");
+
+    function myVersion() {
+        const id = makeMyVersion(recipe.id, myName);
+        if (id) {
+            toast("Your version is ready", { sub: "Change it however you like.", sound: "tick" });
+            navigate("/recipes/" + id);
+        }
+    }
+
+    return (
+        <div className="page recipe-page">
+            <Link to="/recipes" className="back no-print">← All recipes</Link>
+            <div className="page-header">
+                <div className="recipe-title">
+                    <RecipePhoto recipe={recipe} readOnly={!canEdit} />
+                    <div>
+                        <h1>{recipe.name}</h1>
+                        {sub && <p className="muted">{sub}</p>}
+                    </div>
+                </div>
+                {canEdit && (
+                    <div className="button-row no-print">
+                        <button className="secondary" onClick={() => setEditing(true)}>Edit details</button>
+                        <button className="secondary" onClick={() => window.print()}>Print</button>
+                        <button className="danger" onClick={remove}>Delete</button>
+                    </div>
+                )}
+            </div>
+            {editing && canEdit && <EditDetails recipe={recipe} recipesOnly onDone={() => setEditing(false)} />}
+            <RecipeLines recipe={recipe} lines={lines} readOnly={!canEdit} />
+            <section className="card">
+                <h2>Directions</h2>
+                {recipe.directions ? <p className="directions">{recipe.directions}</p>
+                    : <p className="muted small">No directions yet.{canEdit ? " Add them with Edit details." : ""}</p>}
+                {recipe.description && <p className="muted">{recipe.description}</p>}
+            </section>
+            {!canEdit && (
+                <div className="recipe-bottom-actions no-print">
+                    <p className="muted small">
+                        {addedBy ? "This is " + addedBy + "'s recipe" : "Someone else added this recipe"}, so you can't change it.
+                        Want it your way? Make your own version.
+                    </p>
+                    <div className="button-row">
+                        <button onClick={myVersion}>Make my version</button>
+                        <button className="secondary" onClick={() => window.print()}>Print</button>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -6,18 +6,22 @@
 //     "Text it": the phone's share sheet (Messages, WhatsApp...) or, on a computer, copy
 //     "New link": turns the old one off right away (if the QR code got photographed somewhere)
 // Links work for 14 days and 50 people (team-links.sql).
+// A "Just recipes" place: one kind of link (manager = "Family": add recipes, change their own).
 
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { useSession } from "../cloud/session";
 import { inviteLinkFor, replaceInviteLink, type InviteLink } from "../cloud/team";
 import type { Role } from "../cloud/sync";
+import { useRecipesOnly } from "../data/place";
 
 export default function InviteCard({ compact = false }: { compact?: boolean }) {
     const session = useSession();
     const barId = session.mode === "ready" ? session.bar?.id ?? null : null;
     const isOwner = session.bar?.role === "owner";
-    const [role, setRole] = useState<Role>("staff");
+    const recipesOnly = useRecipesOnly();
+    const [chosen, setRole] = useState<Role>("staff");
+    const role: Role = recipesOnly ? "manager" : chosen;
     const [link, setLink] = useState<InviteLink | null>(null);
     const [qr, setQr] = useState("");
     const [error, setError] = useState("");
@@ -48,7 +52,7 @@ export default function InviteCard({ compact = false }: { compact?: boolean }) {
 
     async function share() {
         if (!link) return;
-        const text = "Join " + (session.bar?.name ?? "our team") + " on Agave for our recipes and specs: " + link.url;
+        const text = "Join " + (session.bar?.name ?? "our team") + " on Agave for our " + (recipesOnly ? "recipes: " : "recipes and specs: ") + link.url;
         if (navigator.share) {
             try {
                 await navigator.share({ title: "Join " + session.bar?.name + " on Agave", text });
@@ -73,7 +77,7 @@ export default function InviteCard({ compact = false }: { compact?: boolean }) {
 
     return (
         <div className={"invite-card" + (compact ? " compact" : "")}>
-            {isOwner && (
+            {isOwner && !recipesOnly && (
                 <div className="invite-roles" role="radiogroup" aria-label="They join as">
                     <button role="radio" aria-checked={role === "staff"} className={role === "staff" ? "active" : ""} onClick={() => setRole("staff")}>Staff</button>
                     <button role="radio" aria-checked={role === "manager"} className={role === "manager" ? "active" : ""} onClick={() => setRole("manager")}>Manager</button>
@@ -85,10 +89,17 @@ export default function InviteCard({ compact = false }: { compact?: boolean }) {
                 </div>
                 <div className="invite-copy">
                     <strong>Pass your phone around</strong>
-                    <span className="muted small">
-                        They scan it with their camera, make an account, and they're in as {role === "manager" ? "a manager" : "staff"}.
-                        {role === "staff" ? " Staff see recipes and specs, count and log waste. Never costs." : " Managers see and change everything but the owners."}
-                    </span>
+                    {recipesOnly ? (
+                        <span className="muted small">
+                            They scan it with their camera, make an account, and they're in. They can add recipes and
+                            change their own. For anyone else's, they make their own version.
+                        </span>
+                    ) : (
+                        <span className="muted small">
+                            They scan it with their camera, make an account, and they're in as {role === "manager" ? "a manager" : "staff"}.
+                            {role === "staff" ? " Staff see recipes and specs, count and log waste. Never costs." : " Managers see and change everything but the owners."}
+                        </span>
+                    )}
                 </div>
             </div>
             {error && <p className="error" role="alert">{error}</p>}

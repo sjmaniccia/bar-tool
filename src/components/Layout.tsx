@@ -11,6 +11,8 @@
 // The + button opens what people actually do on a shift: scan an invoice, count,
 // log something broken, scan recipes, add a recipe, invite the team, order.
 // Staff get their own tabs: Specs · Training · (+) · Counts · Waste.
+// A "Just recipes" place (data/place.ts) gets Home and Recipes only, and a + with
+// recipe things: scan, new, invite family. No costs, stock, sales or invoices.
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
@@ -20,6 +22,7 @@ import { cloudEnabled } from "../cloud/client";
 import { canOpen } from "../cloud/access";
 import { useDb } from "../data/storage";
 import { createRecipe } from "../data/actions";
+import { useRecipesOnly } from "../data/place";
 import { setShowEverything, unlockedTabs, useSetupPrefs } from "../data/setup";
 import { setCelebrations, setHaptics, setSounds, toast, unlockSound, useFeedbackSettings, type Celebrations } from "../feedback";
 import { BrandMark } from "./BrandMark";
@@ -85,6 +88,12 @@ const MANAGER_SECTIONS: Section[] = [
     }
 ];
 
+// Just recipes: the recipe list is the whole Recipes section
+const FAMILY_SECTIONS: Section[] = [
+    MANAGER_SECTIONS[0],
+    { id: "recipes", label: "Recipes", to: "/recipes", icon: ICONS.recipes, pages: [], match: ["/recipes"] }
+];
+
 const STAFF_SECTIONS: Section[] = [
     { id: "staff-specs", label: "Specs", to: "/specs", icon: ICONS.recipes, pages: [{ to: "/specs", label: "Spec books" }, { to: "/classics", label: "Classics" }], match: ["/specs", "/menus", "/classics"] },
     { id: "staff-training", label: "Training", to: "/training", icon: ICONS.training, pages: [], match: ["/training"] },
@@ -112,6 +121,7 @@ export default function Layout() {
     const role = session.bar?.role ?? null;
     const placeId = session.bar?.id ?? "local";
     const prefs = useSetupPrefs(placeId);
+    const recipesOnly = useRecipesOnly();
     const [sheet, setSheet] = useState<"actions" | "invite" | null>(null);
 
     // WHEN the page changes, close any open sheet
@@ -137,13 +147,14 @@ export default function Layout() {
     if (staff && (location.pathname === "/" || location.pathname === "/recipes")) return <Navigate to="/specs" replace />;
 
     const unlocked = unlockedTabs(data, prefs.showAll);
-    const all = staff ? STAFF_SECTIONS : MANAGER_SECTIONS;
+    const all = staff ? STAFF_SECTIONS : recipesOnly ? FAMILY_SECTIONS : MANAGER_SECTIONS;
     const current = sectionOf(location.pathname, all);
     // A locked section still shows while you're on one of its pages
     const sections = all.filter((s) =>
         (s.id !== "stock" || unlocked.stock || current?.id === "stock") &&
         (s.id !== "numbers" || unlocked.numbers || current?.id === "numbers"));
-    const canInvite = session.mode === "ready" && !staff;
+    // Family places: the owner invites (everyone joins able to add recipes)
+    const canInvite = session.mode === "ready" && !staff && (!recipesOnly || role === "owner");
 
     // Phone tab bar: the sections with the + in the middle
     const half = Math.ceil(sections.length / 2);
@@ -157,11 +168,11 @@ export default function Layout() {
                 <div className="topbar-right">
                     {session.mode === "ready" && <SyncBadge session={session} />}
                     {canInvite && (
-                        <button className="icon-circle" aria-label="Invite your team" title="Invite your team" onClick={() => setSheet("invite")}>
+                        <button className="icon-circle" aria-label={recipesOnly ? "Invite family" : "Invite your team"} title={recipesOnly ? "Invite family" : "Invite your team"} onClick={() => setSheet("invite")}>
                             <Icon d={ICONS.invite} size={20} />
                         </button>
                     )}
-                    <ProfileMenu session={session} />
+                    <ProfileMenu session={session} recipesOnly={recipesOnly} />
                 </div>
             </header>
 
@@ -213,9 +224,9 @@ export default function Layout() {
             </nav>
 
             <Toasts />
-            {sheet === "actions" && <ActionSheet staff={staff} canInvite={canInvite} onInvite={() => setSheet("invite")} onClose={() => setSheet(null)} />}
+            {sheet === "actions" && <ActionSheet staff={staff} recipesOnly={recipesOnly} canInvite={canInvite} onInvite={() => setSheet("invite")} onClose={() => setSheet(null)} />}
             {sheet === "invite" && (
-                <Sheet title="Invite your team" onClose={() => setSheet(null)}>
+                <Sheet title={recipesOnly ? "Invite family" : "Invite your team"} onClose={() => setSheet(null)}>
                     <InviteCard compact />
                 </Sheet>
             )}
@@ -246,10 +257,18 @@ function Sheet({ title, onClose, children }: { title: string; onClose: () => voi
     );
 }
 
-function ActionSheet({ staff, canInvite, onInvite, onClose }: { staff: boolean; canInvite: boolean; onInvite: () => void; onClose: () => void }) {
+function ActionSheet({ staff, recipesOnly, canInvite, onInvite, onClose }: { staff: boolean; recipesOnly: boolean; canInvite: boolean; onInvite: () => void; onClose: () => void }) {
     const navigate = useNavigate();
     const go = (to: string) => { onClose(); navigate(to); };
-    const tiles: { title: string; sub: string; icon: string; run: () => void }[] = staff
+    const scanTile = { title: "Scan recipes", sub: "Pages from a book or a card", icon: "M5 4h10l4 4v12H5z M9 12h6 M9 16h6", run: () => go("/recipes/scan") };
+    const newTile = { title: "New recipe", sub: recipesOnly ? "Type one in" : "Blank, or from a classic", icon: ICONS.plus, run: () => { const id = createRecipe("New recipe"); go("/recipes/" + id + "?edit=1"); } };
+    const tiles: { title: string; sub: string; icon: string; run: () => void }[] = recipesOnly && !staff
+        ? [
+            scanTile,
+            newTile,
+            ...(canInvite ? [{ title: "Invite family", sub: "QR code or a text", icon: ICONS.invite, run: onInvite }] : [])
+        ]
+        : staff
         ? [
             { title: "Count", sub: "Pick up where you left off", icon: ICONS.stock, run: () => go("/counts") },
             { title: "Something broke", sub: "Log waste or a spill", icon: ICONS.waste, run: () => go("/waste") }
@@ -257,14 +276,14 @@ function ActionSheet({ staff, canInvite, onInvite, onClose }: { staff: boolean; 
         : [
             { title: "Count", sub: "Pick up where you left off", icon: ICONS.stock, run: () => go("/counts") },
             { title: "Something broke", sub: "Log waste or a spill", icon: ICONS.waste, run: () => go("/waste") },
-            { title: "Scan recipes", sub: "Pages from your book", icon: "M5 4h10l4 4v12H5z M9 12h6 M9 16h6", run: () => go("/recipes/scan") },
-            { title: "New recipe", sub: "Blank, or from a classic", icon: ICONS.plus, run: () => { const id = createRecipe("New recipe"); go("/recipes/" + id + "?edit=1"); } },
+            scanTile,
+            newTile,
             ...(canInvite ? [{ title: "Invite your team", sub: "QR code or a text", icon: ICONS.invite, run: onInvite }] : []),
             { title: "Order", sub: "Agave suggests what", icon: "M3 7h11v9H3z M14 10h4l3 3v3h-7", run: () => go("/orders") }
         ];
     return (
-        <Sheet title="What's happening?" onClose={onClose}>
-            {!staff && (
+        <Sheet title={recipesOnly ? "Add a recipe" : "What's happening?"} onClose={onClose}>
+            {!staff && !recipesOnly && (
                 <button className="action-hero" onClick={() => go("/invoices/scan")}>
                     <span className="action-hero-icon"><Icon d="M4 8h3l2-3h6l2 3h3v11H4z M12 9.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 1 1 0-7" size={26} /></span>
                     <span><strong>A delivery came in</strong><span>Scan the invoice</span></span>
@@ -286,11 +305,14 @@ function ActionSheet({ staff, canInvite, onInvite, onClose }: { staff: boolean; 
 
 // ===== Top bar pieces =====
 
-// The open place's name, or a dropdown to switch between places
+// The open place's name, or a dropdown to switch between places (computers)
+//     on phones it's hidden: "Your places" in the profile menu does the same
 function BarName({ session }: { session: Session }) {
+    const navigate = useNavigate();
     if (session.bars.length <= 1) return <span className="bar-name">{session.bar?.name}</span>;
     return (
-        <select className="bar-switch" aria-label="Switch location" value={session.bar?.id} onChange={(e) => void switchBar(e.target.value)}>
+        <select className="bar-switch" aria-label="Switch place" value={session.bar?.id}
+            onChange={(e) => { navigate("/"); void switchBar(e.target.value); }}>
             {session.bars.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
     );
@@ -314,14 +336,23 @@ function SyncBadge({ session }: { session: Session }) {
 }
 
 // Everything that isn't a daily task: team, backups, look and sound, sign out
-function ProfileMenu({ session }: { session: Session }) {
+function ProfileMenu({ session, recipesOnly }: { session: Session; recipesOnly: boolean }) {
     const [open, setOpen] = useState(false);
     const [theme, setTheme] = useState(currentTheme);
     const location = useLocation();
+    const navigate = useNavigate();
     const feedback = useFeedbackSettings();
     const prefs = useSetupPrefs(session.bar?.id ?? "local");
     useEffect(() => setOpen(false), [location.pathname]);
     const ready = session.mode === "ready";
+
+    // Open another place, on its Home (the page you're on may not exist there)
+    async function goTo(barId: string) {
+        setOpen(false);
+        if (barId === session.bar?.id) return;
+        navigate("/");
+        await switchBar(barId);
+    }
 
     // Signing out wipes this device's copy, so warn if changes haven't reached the server
     async function out() {
@@ -339,12 +370,22 @@ function ProfileMenu({ session }: { session: Session }) {
                     {ready && (
                         <>
                             <div className="account-email">{session.email}</div>
-                            <div className="muted small">{session.bar?.name} · {session.bar?.role}</div>
-                            <Link to="/team" role="menuitem">Team</Link>
+                            <div className="menu-label">Your places</div>
+                            {session.bars.map((b) => (
+                                <button key={b.id} type="button" role="menuitemradio" aria-checked={b.id === session.bar?.id}
+                                    className={"place-item" + (b.id === session.bar?.id ? " current" : "")} onClick={() => void goTo(b.id)}>
+                                    <span className="place-check" aria-hidden="true">{b.id === session.bar?.id ? "✓" : ""}</span>
+                                    <span className="place-name">{b.name}</span>
+                                    <span className="muted small">{b.role}</span>
+                                </button>
+                            ))}
+                            <Link to="/places/new" role="menuitem" className="place-new">+ Start a new place</Link>
+                            <div className="menu-rule" />
+                            {session.bar?.role !== "staff" && <Link to="/team" role="menuitem">{recipesOnly ? "People & settings" : "Team"}</Link>}
                         </>
                     )}
                     {session.bar?.role !== "staff" && <Link to="/data" role="menuitem">Backup &amp; export</Link>}
-                    {session.bar?.role !== "staff" && <Link to="/sales" role="menuitem">Square &amp; sales</Link>}
+                    {session.bar?.role !== "staff" && !recipesOnly && <Link to="/sales" role="menuitem">Square &amp; sales</Link>}
                     <div className="menu-rule" />
                     <label className="menu-toggle"><span>Sounds</span>
                         <input type="checkbox" checked={feedback.sounds} onChange={(e) => setSounds(e.target.checked)} /></label>
@@ -356,7 +397,7 @@ function ProfileMenu({ session }: { session: Session }) {
                             <option value="subtle">Subtle</option>
                             <option value="off">Off</option>
                         </select></label>
-                    {session.bar?.role !== "staff" && (
+                    {session.bar?.role !== "staff" && !recipesOnly && (
                         <label className="menu-toggle"><span>Show everything</span>
                             <input type="checkbox" checked={prefs.showAll} onChange={(e) => setShowEverything(e.target.checked)} /></label>
                     )}

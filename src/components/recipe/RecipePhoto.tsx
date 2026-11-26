@@ -2,6 +2,9 @@
 // The recipe's picture at the top of its page, with Add / Change / Remove.
 // Pictures from scanned recipe pages show up here on their own; this is for adding
 // or replacing one by hand (take a photo of the finished drink or dish, or choose one).
+// readOnly: just the picture (someone else's recipe in a Just recipes place).
+// A copy ("Make my version", Duplicate) shares its picture, so a picture is only
+// deleted from storage once no other recipe uses it.
 
 import { useState } from "react";
 import { useSession } from "../../cloud/session";
@@ -9,8 +12,14 @@ import { removePhoto, savePhoto, shrinkForRecipe } from "../../cloud/photos";
 import { updateRecipe } from "../../data/actions";
 import { toast } from "../../feedback";
 import type { Recipe } from "../../data/types";
+import { db } from "../../data/storage";
 
-export default function RecipePhoto({ recipe }: { recipe: Recipe }) {
+// Delete the stored picture unless another recipe still shows it
+function dropIfUnused(url: string, recipeId: string) {
+    if (url && !db.recipes.some((r) => r.id !== recipeId && r.photo === url)) void removePhoto(url);
+}
+
+export default function RecipePhoto({ recipe, readOnly = false }: { recipe: Recipe; readOnly?: boolean }) {
     const session = useSession();
     const [busy, setBusy] = useState(false);
     const placeId = session.mode === "ready" ? session.bar?.id ?? null : null;
@@ -26,7 +35,7 @@ export default function RecipePhoto({ recipe }: { recipe: Recipe }) {
             } else {
                 const old = recipe.photo;
                 updateRecipe(recipe.id, { photo: kept.url });
-                if (old) void removePhoto(old);
+                dropIfUnused(old, recipe.id);
                 toast("Picture added", { sound: "tick" });
             }
         } catch {
@@ -39,7 +48,7 @@ export default function RecipePhoto({ recipe }: { recipe: Recipe }) {
         if (!confirm("Remove this picture?")) return;
         const old = recipe.photo;
         updateRecipe(recipe.id, { photo: "" });
-        void removePhoto(old);
+        dropIfUnused(old, recipe.id);
     }
 
     const picker = (label: string) => (
@@ -49,6 +58,9 @@ export default function RecipePhoto({ recipe }: { recipe: Recipe }) {
         </label>
     );
 
+    if (readOnly) {
+        return recipe.photo ? <div className="recipe-photo"><img src={recipe.photo} alt={"Picture of " + recipe.name} /></div> : null;
+    }
     if (!recipe.photo) {
         return (
             <div className="recipe-photo empty no-print">

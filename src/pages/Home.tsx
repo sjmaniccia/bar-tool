@@ -10,6 +10,11 @@
 //     ALWAYS       your recipes, with their cost % (or a dashed "$ ?" until there are prices)
 //
 // When a step gets done, the next time Home opens it celebrates (a chime and a pop-up).
+//
+// A "Just recipes" place (data/place.ts) gets a simpler Home:
+//     no recipes yet   "Let's get your family's recipes in": scan or type one
+//     after that       share them with family (the owner, until someone joins), then the recipes
+//     no steps, costs or "Today"
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
@@ -29,6 +34,7 @@ import {
 import { celebrate, toast } from "../feedback";
 import InviteCard from "../components/InviteCard";
 import type { Database, Recipe } from "../data/types";
+import { useRecipesOnly } from "../data/place";
 
 const STEP_NAMES: Record<StepId, string> = {
     recipes: "Recipes in",
@@ -47,6 +53,65 @@ const LATER_NAMES: Record<StepId, string> = {
 };
 
 export default function Home() {
+    return useRecipesOnly() ? <FamilyHome /> : <BusinessHome />;
+}
+
+// ===== Just recipes =====
+
+function FamilyHome() {
+    const db = useDb();
+    const session = useSession();
+    const navigate = useNavigate();
+    const placeId = session.bar?.id ?? "local";
+    const prefs = useSetupPrefs(placeId);
+    const isOwner = session.mode === "ready" && session.bar?.role === "owner";
+    const newRecipe = () => navigate("/recipes/" + createRecipe("New recipe") + "?edit=1");
+
+    // Is anyone else in yet? (only the owner is asked to invite)
+    const [alone, setAlone] = useState(false);
+    useEffect(() => {
+        if (!isOwner || !session.bar) return;
+        let current = true;
+        listMembers(session.bar.id).then((m) => { if (current) setAlone(m.length <= 1); }).catch(() => undefined);
+        return () => { current = false; };
+    }, [isOwner, session.bar]);
+
+    if (db.recipes.length === 0) {
+        return (
+            <div className="page home">
+                <RecipesStep onNew={newRecipe} big family />
+            </div>
+        );
+    }
+    const askToShare = alone && !prefs.later.includes("team");
+    return (
+        <div className="page home">
+            <div className="home-head">
+                <div>
+                    <div className="muted small">{session.bar?.name ?? "Your recipes"}</div>
+                    <h1>Your recipes</h1>
+                </div>
+                <div className="button-row">
+                    {cloudEnabled && <Link className="button secondary" to="/recipes/scan">Scan more</Link>}
+                    <button className="secondary" onClick={newRecipe}>Type one in</button>
+                </div>
+            </div>
+            {askToShare && (
+                <section className="card step-card">
+                    <h2 className="step-title">Share them with family</h2>
+                    <p className="step-body">Everyone you invite can cook from them on their phone, and add their own.</p>
+                    <InviteCard compact />
+                    <button className="link-button step-later" onClick={() => putOff(placeId, "team")}>Not now</button>
+                </section>
+            )}
+            <RecipeStrip db={db} noCosts all />
+        </div>
+    );
+}
+
+// ===== Bars, restaurants, breweries =====
+
+function BusinessHome() {
     const db = useDb();
     const session = useSession();
     const navigate = useNavigate();
@@ -181,11 +246,13 @@ function StepCard({ minutes, onLater, children }: { minutes: string; onLater: ()
     );
 }
 
-function RecipesStep({ onNew, big = false }: { onNew: () => void; big?: boolean }) {
+function RecipesStep({ onNew, big = false, family = false }: { onNew: () => void; big?: boolean; family?: boolean }) {
     return (
         <div className={"recipes-step" + (big ? " big" : "")}>
-            {big ? <h1>Let's get your recipes in.</h1> : <h2 className="step-title">Let's get your recipes in</h2>}
-            <p className="step-body">Everything in Agave builds from your recipes: costs, training, counts and orders. Start with what you already have.</p>
+            {big ? <h1>{family ? "Let's get your family's recipes in." : "Let's get your recipes in."}</h1> : <h2 className="step-title">Let's get your recipes in</h2>}
+            <p className="step-body">{family
+                ? "Cookbook pages, recipe cards, Grandma's handwriting. Keep them all in one place, on everyone's phone."
+                : "Everything in Agave builds from your recipes: costs, training, counts and orders. Start with what you already have."}</p>
             <div className="start-ways">
                 {cloudEnabled ? (
                     <Link to="/recipes/scan" className="start-way primary">
@@ -193,20 +260,22 @@ function RecipesStep({ onNew, big = false }: { onNew: () => void; big?: boolean 
                             <span className="start-way-icon"><Ic d="M4 8h3l2-3h6l2 3h3v11H4z M12 9.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 1 1 0-7" /></span>
                             <span className="start-way-badge">FASTEST</span>
                         </span>
-                        <strong>Scan your recipe book</strong>
-                        <span>Photograph the pages. Agave types them in for you, about a minute a page.</span>
+                        <strong>{family ? "Scan your recipes" : "Scan your recipe book"}</strong>
+                        <span>Photograph the pages{family ? " or cards" : ""}. Agave types them in for you, about a minute a page.</span>
                     </Link>
                 ) : null}
-                <Link to="/classics" className="start-way">
-                    <span className="start-way-icon"><Ic d="M5 4h14l-7 8z M12 12v7 M8 20h8" /></span>
-                    <span><strong>Start from the classics</strong><span>Pick the ones you make, then make them yours</span></span>
-                </Link>
+                {!family && (
+                    <Link to="/classics" className="start-way">
+                        <span className="start-way-icon"><Ic d="M5 4h14l-7 8z M12 12v7 M8 20h8" /></span>
+                        <span><strong>Start from the classics</strong><span>Pick the ones you make, then make them yours</span></span>
+                    </Link>
+                )}
                 <button className="start-way" onClick={onNew}>
                     <span className="start-way-icon"><Ic d="M12 5v14 M5 12h14" /></span>
-                    <span><strong>Type one in</strong><span>Your signature, to try it out</span></span>
+                    <span><strong>Type one in</strong><span>{family ? "The one you know by heart" : "Your signature, to try it out"}</span></span>
                 </button>
             </div>
-            <Link to="/data" className="small start-import">Have a spreadsheet? Import it</Link>
+            {!family && <Link to="/data" className="small start-import">Have a spreadsheet? Import it</Link>}
         </div>
     );
 }
@@ -334,14 +403,15 @@ function Today({ db }: { db: Database }) {
 
 const TINTS: Record<Recipe["type"], string> = { Cocktail: "#f3ead8", Dish: "#efe6da", Beer: "#f3f1dc", Prep: "#e6efe9" };
 
-function RecipeStrip({ db }: { db: Database }) {
+//     noCosts -> no cost chips (Just recipes); all -> every recipe, A to Z, not just 6
+function RecipeStrip({ db, noCosts = false, all = false }: { db: Database; noCosts?: boolean; all?: boolean }) {
     const shown = useMemo(() => {
         const menuIds = new Set(db.menuItems.map((m) => m.recipeId));
         // Menu recipes first, then the rest; preps last
-        return [...db.recipes]
-            .sort((a, b) => Number(b.type !== "Prep") - Number(a.type !== "Prep") || Number(menuIds.has(b.id)) - Number(menuIds.has(a.id)) || a.name.localeCompare(b.name))
-            .slice(0, 6);
-    }, [db.recipes, db.menuItems]);
+        const sorted = [...db.recipes]
+            .sort((a, b) => all ? a.name.localeCompare(b.name) : Number(b.type !== "Prep") - Number(a.type !== "Prep") || Number(menuIds.has(b.id)) - Number(menuIds.has(a.id)) || a.name.localeCompare(b.name));
+        return all ? sorted : sorted.slice(0, 6);
+    }, [db.recipes, db.menuItems, all]);
     if (db.recipes.length === 0) return null;
     return (
         <section className="home-recipes">
@@ -353,7 +423,7 @@ function RecipeStrip({ db }: { db: Database }) {
                 {shown.map((recipe) => {
                     let pct: number | null = null;
                     let priced = false;
-                    try {
+                    if (!noCosts) try {
                         const s = summarize(recipe);
                         priced = s.ingredientCost > 0;
                         pct = s.ingredientRatio;
@@ -365,7 +435,7 @@ function RecipeStrip({ db }: { db: Database }) {
                                 {recipe.photo ? <img src={recipe.photo} alt="" /> : null}
                             </span>
                             <strong>{recipe.name}</strong>
-                            {!priced
+                            {noCosts ? null : !priced
                                 ? <span className="cost-chip ghost" title="Costs show up once Agave has prices">$ ?</span>
                                 : pct !== null
                                     ? <span className={"cost-chip" + (over ? " over" : "")}>{formatPercent(pct)}</span>

@@ -6,10 +6,15 @@
 // An invite is just an email: when that person makes an account (or signs in)
 // with that email, they join automatically. Agave doesn't send the email yet,
 // so tell them yourself.
+// A "Just recipes" place: called "People", only the owner invites, and everyone joins
+// as a manager ("Family": add recipes, change only their own); there's no staff role to pick.
+// The database enforces that too (recipes-only.sql). The owner can turn costing on or off.
+// New places (another bar, or family recipes) start from "Start a new place" in the profile menu.
 // FIXME: send invite emails (a Supabase Edge Function with an email service like Resend)
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
-import { useSession, createBar, type StartWith } from "../cloud/session";
+import { useSession } from "../cloud/session";
+import { setRecipesOnly, useRecipesOnly } from "../data/place";
 import { cancelInvite, invite, listInvites, listMembers, removeMember, renameBar, ROLE_NOTES, setRole, type Invite, type Member } from "../cloud/team";
 import type { Role } from "../cloud/sync";
 import { formatDate } from "../data/utils";
@@ -24,7 +29,7 @@ export default function Team() {
     const [error, setError] = useState("");
     const [email, setEmail] = useState("");
     const [role, setNewRole] = useState<Role>("staff");
-    const [newBar, setNewBar] = useState("");
+    const recipesOnly = useRecipesOnly();
 
     // Load the team (again after every change)
     const load = useCallback(async () => {
@@ -42,7 +47,26 @@ export default function Team() {
 
     if (!bar) return null;
     const isOwner = bar.role === "owner";
-    const canInvite = bar.role !== "staff";
+    const canInvite = recipesOnly ? isOwner : bar.role !== "staff";
+    const roleName: Record<Role, string> = recipesOnly
+        ? { owner: "Owner", manager: "Family", staff: "Staff" }
+        : { owner: "Owner", manager: "Manager", staff: "Staff" };
+    const roleNotes: Record<Role, string> = recipesOnly
+        ? { owner: "Everything: changes anyone's recipes, and who's in it", manager: "Adds recipes and changes their own. For anyone else's, makes their own version.", staff: "Spec books only" }
+        : ROLE_NOTES;
+    const shownRoles: Role[] = recipesOnly ? ["owner", "manager"] : ["owner", "manager", "staff"];
+
+    // Costing on/off: nothing is deleted either way
+    function switchCosting(on: boolean) {
+        const ask = on
+            ? "Turn on costing, stock and sales for " + bar!.name + "? Everyone here will see costs, the Stock and Numbers sections, and invoice scanning."
+            : "Make " + bar!.name + " just recipes? Costs, stock, sales and invoices get hidden for everyone (not deleted)."
+                + (members.some((m) => m.role === "staff") ? " Staff become \"Family\", since a recipes place has no staff." : "");
+        if (!confirm(ask)) return;
+        setRecipesOnly(!on);
+        // The server moves staff over once the change arrives (recipes-only.sql): show it
+        setTimeout(() => void load(), 1500);
+    }
 
     // Run a change, show its error if any, then reload
     async function run(action: Promise<string | null>) {
@@ -54,40 +78,41 @@ export default function Team() {
 
     async function sendInvite(event: FormEvent) {
         event.preventDefault();
-        if ((await run(invite(bar!.id, email, role))) === null) setEmail("");
-    }
-
-    async function makeBar(event: FormEvent) {
-        event.preventDefault();
-        if (newBar.trim() === "") return;
-        const result = await createBar(newBar, "empty" as StartWith);
-        if (result) setError(result);
-        else setNewBar("");
+        if ((await run(invite(bar!.id, email, recipesOnly ? "manager" : role))) === null) setEmail("");
     }
 
     return (
         <div className="page">
             <div className="page-header">
                 <div>
-                    <h1>Team</h1>
-                    <p className="muted">Everyone at {bar.name}, and what they can do.</p>
+                    <h1>{recipesOnly ? "People" : "Team"}</h1>
+                    <p className="muted">Everyone {recipesOnly ? "in" : "at"} {bar.name}, and what they can do.</p>
                 </div>
             </div>
             {error && <p className="error" role="alert">{error}</p>}
 
             {canInvite && (
                 <section className="card">
-                    <h2>Invite your team</h2>
+                    <h2>{recipesOnly ? "Invite family" : "Invite your team"}</h2>
                     <InviteCard />
                 </section>
             )}
 
             {isOwner && (
                 <section className="card">
-                    <h2>Bar</h2>
+                    <h2>This place</h2>
                     <label className="form-field narrow-field">
                         <span>Name</span>
                         <TextInput value={bar.name} required onSave={(name) => void run(renameBar(bar.id, name))} />
+                    </label>
+                    <label className="menu-toggle costing-toggle">
+                        <span>
+                            <strong>Costing, stock and sales</strong>
+                            <span className="muted small">{recipesOnly
+                                ? "Off: just recipes. Turn it on to cost recipes, count stock and scan invoices."
+                                : "On. Turn it off for a family or personal recipe place."}</span>
+                        </span>
+                        <input type="checkbox" checked={!recipesOnly} onChange={(e) => switchCosting(e.target.checked)} />
                     </label>
                 </section>
             )}
@@ -106,11 +131,11 @@ export default function Team() {
                                         {isOwner ? (
                                             <select aria-label={"Role for " + m.email} value={m.role}
                                                 onChange={(e) => void run(setRole(bar.id, m.userId, e.target.value as Role))}>
-                                                <option value="owner">Owner</option>
-                                                <option value="manager">Manager</option>
-                                                <option value="staff">Staff</option>
+                                                {(recipesOnly ? shownRoles : ["owner", "manager", "staff"] as Role[]).map((r) => (
+                                                    <option key={r} value={r}>{roleName[r]}</option>
+                                                ))}
                                             </select>
-                                        ) : <span className="tag">{m.role}</span>}
+                                        ) : <span className="tag">{roleName[m.role]}</span>}
                                     </td>
                                     <td className="hide-phone muted">{formatDate(m.joinedAt)}</td>
                                     <td className="num">
@@ -132,8 +157,8 @@ export default function Team() {
                     </tbody>
                 </table>
                 <dl className="role-notes card-pad">
-                    {(["owner", "manager", "staff"] as Role[]).map((r) => (
-                        <div key={r}><dt>{r}</dt><dd className="muted">{ROLE_NOTES[r]}</dd></div>
+                    {shownRoles.map((r) => (
+                        <div key={r}><dt>{roleName[r]}</dt><dd className="muted">{roleNotes[r]}</dd></div>
                     ))}
                 </dl>
             </section>
@@ -152,10 +177,12 @@ export default function Team() {
                         </label>
                         <label className="form-field">
                             <span>Role</span>
-                            <select value={role} onChange={(e) => setNewRole(e.target.value as Role)}>
-                                <option value="staff">Staff</option>
-                                {isOwner && <option value="manager">Manager</option>}
-                            </select>
+                            {recipesOnly ? <span className="muted">{roleName.manager}</span> : (
+                                <select value={role} onChange={(e) => setNewRole(e.target.value as Role)}>
+                                    <option value="staff">Staff</option>
+                                    {isOwner && <option value="manager">Manager</option>}
+                                </select>
+                            )}
                         </label>
                         <button type="submit">Invite</button>
                     </form>
@@ -165,7 +192,7 @@ export default function Team() {
                             <ul className="invite-list">
                                 {invites.map((i) => (
                                     <li key={i.id}>
-                                        <span>{i.email} <span className="tag">{i.role}</span></span>
+                                        <span>{i.email} <span className="tag">{roleName[i.role]}</span></span>
                                         <button className="link-button" onClick={() => void run(cancelInvite(i.id))}>Cancel</button>
                                     </li>
                                 ))}
@@ -175,17 +202,6 @@ export default function Team() {
                 </section>
             )}
 
-            <section className="card">
-                <h2>Another location</h2>
-                <p className="muted small">Run more than one bar? Each gets its own recipes, stock and team. Switch between them from the top bar.</p>
-                <form className="invite-form" onSubmit={makeBar}>
-                    <label className="form-field">
-                        <span>New bar's name</span>
-                        <input value={newBar} maxLength={100} onChange={(e) => setNewBar(e.target.value)} />
-                    </label>
-                    <button type="submit" className="secondary">Create bar</button>
-                </form>
-            </section>
         </div>
     );
 }

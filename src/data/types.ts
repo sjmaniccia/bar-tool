@@ -96,6 +96,7 @@ export interface Recipe {
     description: string;                  // the story behind it, for staff
     directions: string;                   // how to make it
     photo: string;                        // a picture of it: a web address, or "" for none
+    createdBy: string;                    // who put it in (an account id), "" = before accounts or unknown
 }
 
 // One ingredient line: uses an ingredient OR a sub-recipe
@@ -107,10 +108,20 @@ export interface RecipeLine {
     choicePurchaseUnitId: string | null;  // overrides the house choice...
     choiceRecipeId: string | null;        // ...with a purchase unit or an in-house recipe
     amount: number;
-    unit: string;
+    unit: string;               // "each" = a count: shown as "2 onions", never "2 each onions"
+    countWord: string;          // what's counted, as written: "clove" (3 cloves garlic), "can"; "" = the thing itself
+    note: string;               // as written after it: "chopped", "to taste"; "" = none
 }
 
 // ===== Stock counts =====
+
+// How a place uses Agave (one row, id "place"; no row = the defaults)
+//     recipesOnly: a family's or home cook's recipes, with every costing, stock
+//     and sales part hidden. Turning it off later loses nothing.
+export interface PlaceSettings {
+    id: string;
+    recipesOnly: boolean;
+}
 
 // Where things are kept: "Back bar", "Walk-in"
 export interface Area {
@@ -293,4 +304,5 @@ export interface Database {
     posLinks: PosLink[];
     invoiceItemLinks: InvoiceItemLink[];
     wasteEntries: WasteEntry[];
+    placeSettings: PlaceSettings[];
 }

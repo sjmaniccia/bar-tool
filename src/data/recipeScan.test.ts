@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { db } from "./storage";
 import { sampleData } from "./sampleData";
 import { recipeIngredientCost } from "./costing";
-import { buildRecipeDrafts, matchIngredient, newIngredientNames, saveRecipeDrafts, type ScannedRecipe } from "./recipeScan";
+import { buildRecipeDrafts, matchIngredient, newIngredientNames, saveRecipeDraft, saveRecipeDrafts, type ScannedRecipe } from "./recipeScan";
 
 beforeEach(() => {
     Object.assign(db, sampleData());
@@ -14,8 +14,8 @@ beforeEach(() => {
 function recipe(name: string, ingredients: [number | null, string, string, string?][], more: Partial<ScannedRecipe> = {}): ScannedRecipe {
     return {
         name, type: "Cocktail", glass: "Coupe", garnish: "", directions: "Shake.", description: "", menuPrice: null,
-        yieldAmount: 1, yieldUnit: "serving", hasPhoto: false, photoBox: null,
-        ingredients: ingredients.map(([amount, unit, n, note]) => ({ amount, unit, name: n, note: note ?? "" })),
+        yieldAmount: 1, yieldUnit: "serving", serves: null, hasPhoto: false, photoBox: null,
+        ingredients: ingredients.map(([amount, unit, n, note]) => ({ amount, unit, name: n, note: note ?? "", countWord: "", unitGuessed: false })),
         ...more
     };
 }
@@ -64,7 +64,9 @@ describe("drafts and saving", () => {
         expect(recipeIngredientCost(daiquiri.id)).toBeGreaterThan(0);   // the rum has a price
 
         const spritz = db.recipes.find((r) => r.name === "Spritz")!;
-        expect(spritz.directions).toContain("Prosecco: top");
+        expect(spritz.directions).toBe("Shake.");
+        const top = db.recipeLines.find((l) => l.recipeId === spritz.id && l.note === "top")!;
+        expect(top).toMatchObject({ amount: 0, unit: "", countWord: "" });
         // One of each new ingredient, even used twice
         expect(db.ingredients.length).toBe(before + 5);
     });
@@ -84,5 +86,27 @@ describe("drafts and saving", () => {
         const [d] = buildRecipeDrafts([recipe("Daiquiri", [[2, "fl oz", "White rum"]])], 1);
         const [id] = saveRecipeDrafts([{ ...d, include: true }]);
         expect(db.recipes.find((r) => r.id === id)?.name).toBe("Daiquiri (scanned)");
+    });
+
+    test("a family recipe: counts keep their word, no close matches, serves becomes servings", () => {
+        const stuffing: ScannedRecipe = {
+            ...recipe("Mom's stuffing", []), type: "Cocktail", glass: "Coupe", serves: 8,
+            ingredients: [
+                { amount: 2, unit: "each", countWord: "", unitGuessed: true, name: "onions", note: "chopped" },
+                { amount: 3, unit: "each", countWord: "clove", unitGuessed: false, name: "garlic", note: "" },
+                { amount: 1, unit: "cup", countWord: "", unitGuessed: false, name: "fresh-squeezed lime juice", note: "" },
+                { amount: null, unit: "", countWord: "", unitGuessed: false, name: "salt", note: "to taste" }
+            ]
+        };
+        const [draft] = buildRecipeDrafts([stuffing], 1, true);
+        expect(draft).toMatchObject({ type: "Dish", glass: "", yieldAmount: 8, yieldUnit: "serving" });
+        expect(draft.lines[0]).toMatchObject({ checkCount: true, note: "chopped" });
+        expect(draft.lines[2]).toMatchObject({ how: "new", ingredientId: null });   // no "close match" to Lime juice
+
+        const id = saveRecipeDraft(draft);
+        const lines = db.recipeLines.filter((l) => l.recipeId === id);
+        expect(lines.map((l) => [l.amount, l.unit, l.countWord, l.note])).toEqual([
+            [2, "each", "", "chopped"], [3, "each", "clove", ""], [1, "cup", "", ""], [0, "", "", "to taste"]
+        ]);
     });
 });

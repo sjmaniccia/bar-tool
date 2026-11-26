@@ -11,6 +11,8 @@ import { Link } from "react-router";
 import { useSession } from "../cloud/session";
 import { PRIVACY_URL } from "../native";
 import { deleteAccount, previewDeletion, type DeletionPlan } from "../cloud/account";
+import { setMyName } from "../cloud/team";
+import { reloadNames, useMyName } from "../cloud/names";
 
 export default function Account() {
     const session = useSession();
@@ -50,6 +52,8 @@ export default function Account() {
                     <p className="muted">Signed in as {session.email}</p>
                 </div>
             </div>
+
+            <YourName />
 
             <p className="muted small">How Agave handles your data: <a href={PRIVACY_URL} target="_blank" rel="noreferrer">privacy policy</a>.</p>
 
@@ -97,5 +101,36 @@ export default function Account() {
                 )}
             </section>
         </div>
+    );
+}
+
+// Your name: shown on recipes you add ("Added by Mom") and your versions ("(Mom's Version)")
+function YourName() {
+    const saved = useMyName();
+    const [name, setName] = useState<string | null>(null);     // null = not edited yet
+    const [note, setNote] = useState("");
+    const shown = name ?? saved;
+
+    async function save(event: React.FormEvent) {
+        event.preventDefault();
+        const problem = await setMyName(shown);
+        setNote(problem ?? "Saved.");
+        if (!problem) {
+            setName(null);
+            reloadNames();
+        }
+    }
+
+    return (
+        <section className="card">
+            <h2>Your name</h2>
+            <p className="muted small">Shown on recipes you add, like "Added by Mom", and on your versions of others' recipes.</p>
+            <form className="button-row" onSubmit={save}>
+                <input value={shown} maxLength={60} placeholder="Mom, Sarah, Uncle Joe" aria-label="Your name"
+                    onChange={(e) => { setName(e.target.value); setNote(""); }} />
+                <button type="submit" disabled={name === null || name.trim() === saved}>Save</button>
+            </form>
+            {note && <p className="muted small" role="status">{note}</p>}
+        </section>
     );
 }

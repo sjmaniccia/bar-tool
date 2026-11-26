@@ -7,6 +7,7 @@
 // so adding a classic reuses ingredients a bar already has instead of making copies.
 // Specs are common modern versions; every bar tweaks them.
 
+import { me } from "./me";
 import { db, commit } from "./storage";
 import { getOrCreateIngredient } from "./actions";
 import { makeId } from "./utils";
@@ -272,13 +273,14 @@ export function addClassic(classic: Classic): string {
         garnish: classic.garnish,
         description: classic.description,
         directions: classic.directions,
-        photo: ""
+        photo: "",
+        createdBy: me()
     };
     db.recipes.push(recipe);
     for (const [amount, unit, name] of classic.build) {
         db.recipeLines.push({
             id: makeId(), recipeId: recipe.id, ingredientId: getOrCreateIngredient(name).id, subRecipeId: null,
-            choicePurchaseUnitId: null, choiceRecipeId: null, amount, unit
+            choicePurchaseUnitId: null, choiceRecipeId: null, amount, unit, countWord: "", note: ""
         });
     }
     commit();

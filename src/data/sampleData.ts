@@ -12,7 +12,7 @@ function recipe(fields: Partial<Recipe> & Pick<Recipe, "id" | "name">): Recipe {
     return {
         type: "Cocktail", yieldAmount: 1, yieldUnit: "serving", menuPrice: null,
         producesIngredientId: null, laborWage: null, laborMinutes: null,
-        glass: "", garnish: "", description: "", directions: "", photo: "",
+        glass: "", garnish: "", description: "", directions: "", photo: "", createdBy: "",
         ...fields
     };
 }
@@ -118,16 +118,16 @@ export function sampleData(): Database {
             })
         ],
         recipeLines: [
-            { id: "l-1", recipeId: "r-limejuice", ingredientId: "i-lime", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 10, unit: "each" },
-            { id: "l-2", recipeId: "r-syrup", ingredientId: "i-sugar", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 2, unit: "lb" },
-            { id: "l-3", recipeId: "r-daiquiri", ingredientId: "i-rum", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 2, unit: "fl oz" },
-            { id: "l-4", recipeId: "r-daiquiri", ingredientId: "i-limejuice", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz" },
-            { id: "l-5", recipeId: "r-daiquiri", ingredientId: "i-syrup", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 0.75, unit: "fl oz" },
-            { id: "l-6", recipeId: "r-margarita", ingredientId: "i-tequila", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 2, unit: "fl oz" },
-            { id: "l-7", recipeId: "r-margarita", ingredientId: "i-orange", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz" },
-            { id: "l-8", recipeId: "r-margarita", ingredientId: "i-limejuice", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz" },
-            { id: "l-9", recipeId: "r-margarita", ingredientId: "i-syrup", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 0.5, unit: "fl oz" },
-            { id: "l-10", recipeId: "r-lager", ingredientId: "i-lager", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 16, unit: "fl oz" }
+            { id: "l-1", recipeId: "r-limejuice", ingredientId: "i-lime", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 10, unit: "each", countWord: "", note: "" },
+            { id: "l-2", recipeId: "r-syrup", ingredientId: "i-sugar", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 2, unit: "lb", countWord: "", note: "" },
+            { id: "l-3", recipeId: "r-daiquiri", ingredientId: "i-rum", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 2, unit: "fl oz", countWord: "", note: "" },
+            { id: "l-4", recipeId: "r-daiquiri", ingredientId: "i-limejuice", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz", countWord: "", note: "" },
+            { id: "l-5", recipeId: "r-daiquiri", ingredientId: "i-syrup", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 0.75, unit: "fl oz", countWord: "", note: "" },
+            { id: "l-6", recipeId: "r-margarita", ingredientId: "i-tequila", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 2, unit: "fl oz", countWord: "", note: "" },
+            { id: "l-7", recipeId: "r-margarita", ingredientId: "i-orange", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz", countWord: "", note: "" },
+            { id: "l-8", recipeId: "r-margarita", ingredientId: "i-limejuice", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 1, unit: "fl oz", countWord: "", note: "" },
+            { id: "l-9", recipeId: "r-margarita", ingredientId: "i-syrup", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 0.5, unit: "fl oz", countWord: "", note: "" },
+            { id: "l-10", recipeId: "r-lager", ingredientId: "i-lager", subRecipeId: null, choicePurchaseUnitId: null, choiceRecipeId: null, amount: 16, unit: "fl oz", countWord: "", note: "" }
         ],
         areas: [
             { id: "a-backbar", name: "Back bar" },
@@ -199,6 +199,7 @@ export function sampleData(): Database {
         wasteEntries: [
             { id: "w-1", date: "2026-11-12", kind: "product", formatId: "f-tequila", recipeId: null, quantity: 1, reason: "breakage", note: "Dropped during restock" },
             { id: "w-2", date: "2026-11-14", kind: "recipe", formatId: null, recipeId: "r-daiquiri", quantity: 3, reason: "comp", note: "Birthday table" }
-        ]
+        ],
+        placeSettings: []
     };
 }

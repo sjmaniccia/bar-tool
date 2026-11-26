@@ -34,7 +34,8 @@ export function emptyData(): Database {
         posLinks: [],
         invoiceItemLinks: [],
         invoiceCharges: [],
-        wasteEntries: []
+        wasteEntries: [],
+        placeSettings: []
     };
 }
 
@@ -171,6 +172,11 @@ function upgradeToProducts(old: OldSave) {
 
 // Give older rows any fields added later (all start empty)
 function fillNewFields(old: OldSave) {
+    // Count words and notes on recipe lines ("3 cloves garlic, minced")
+    for (const line of old.recipeLines ?? []) {
+        line.countWord ??= "";
+        line.note ??= "";
+    }
     // "Paper products" became one of the supply families
     for (const product of old.products ?? []) {
         if (product.family === "Paper products") product.family = "Paper & disposables";
@@ -194,6 +200,7 @@ function fillNewFields(old: OldSave) {
     for (const recipe of old.recipes ?? []) {
         recipe.producesIngredientId ??= null;
         recipe.photo ??= "";
+        recipe.createdBy ??= "";
         recipe.laborWage ??= null;
         recipe.laborMinutes ??= null;
         recipe.glass ??= "";

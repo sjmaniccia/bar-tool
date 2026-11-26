@@ -2,7 +2,7 @@
 // Checks the clean-up of what Claude reads off a recipe book page.
 
 import { describe, expect, test } from "vitest";
-import { amountOf, boxOf, cleanRecipes, RECIPE_UNITS, unitOf } from "./recipe-scan";
+import { amountOf, boxOf, cleanRecipes, countOf, RECIPE_UNITS, singular, unitOf } from "./recipe-scan";
 import { YIELD_UNITS } from "../../../src/data/units";
 
 describe("recipe scan clean-up", () => {
@@ -50,10 +50,11 @@ describe("recipe scan clean-up", () => {
         expect(warnings).toEqual([]);
         expect(recipes).toHaveLength(2);
         expect(recipes[0]).toMatchObject({ name: "Paper Plane", menuPrice: 14, hasPhoto: true, yieldAmount: 1, yieldUnit: "serving" });
-        expect(recipes[0].ingredients[1]).toEqual({ amount: 0.75, unit: "fl oz", name: "Aperol", note: "" });
+        const none = { countWord: "", unitGuessed: false };
+        expect(recipes[0].ingredients[1]).toEqual({ amount: 0.75, unit: "fl oz", name: "Aperol", note: "", ...none });
         expect(recipes[1].ingredients).toEqual([
-            { amount: 2, unit: "fl oz", name: "Aperol", note: "" },
-            { amount: null, unit: "", name: "Prosecco", note: "top" }
+            { amount: 2, unit: "fl oz", name: "Aperol", note: "", ...none },
+            { amount: null, unit: "", name: "Prosecco", note: "top", ...none }
         ]);
     });
 
@@ -80,5 +81,30 @@ describe("recipe scan clean-up", () => {
 
     test("an empty page says so", () => {
         expect(cleanRecipes({ recipes: [] }).warnings[0]).toMatch(/No recipes/);
+    });
+
+    test("counted things keep their word, and a bare number asks", () => {
+        expect(singular("cloves")).toBe("clove");
+        expect(singular("bunches")).toBe("bunch");
+        expect(singular("leaves")).toBe("leaf");
+        expect(singular("can")).toBe("can");
+        expect(countOf("", "", 2)).toEqual({ countWord: "", unitGuessed: true });
+        expect(countOf("each", "cloves", 3)).toEqual({ countWord: "clove", unitGuessed: false });
+        expect(countOf("cans", "", 1)).toEqual({ countWord: "can", unitGuessed: false });
+        expect(countOf("each", "", 2)).toEqual({ countWord: "", unitGuessed: false });
+        expect(countOf("", "", null)).toEqual({ countWord: "", unitGuessed: false });
+
+        const { recipes } = cleanRecipes({ recipes: [{ name: "Mom's stuffing", type: "Dish", serves: 8, ingredients: [
+            { amount: 2, unit: "", name: "onions", note: "chopped" },
+            { amount: 3, unit: "each", count_word: "cloves", name: "garlic" },
+            { amount: 1, unit: "cup", name: "celery" },
+            { name: "salt", note: "to taste" }
+        ] }] });
+        const [onions, garlic, celery, salt] = recipes[0].ingredients;
+        expect(recipes[0].serves).toBe(8);
+        expect(onions).toMatchObject({ amount: 2, unit: "each", countWord: "", unitGuessed: true, note: "chopped" });
+        expect(garlic).toMatchObject({ amount: 3, unit: "each", countWord: "clove", unitGuessed: false });
+        expect(celery).toMatchObject({ unit: "cup", countWord: "", unitGuessed: false });
+        expect(salt).toMatchObject({ amount: null, unit: "", note: "to taste", unitGuessed: false });
     });
 });
