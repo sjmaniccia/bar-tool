@@ -2,7 +2,8 @@
 # Run it by hand: GitHub > Actions > "iPhone app to TestFlight" > Run workflow.
 #
 #     BUILD   the web app (same as the website), copied into the iPhone project
-#     SIGN    automatically, with an App Store Connect API key (no certificates to manage)
+#     SIGN    at upload, with Apple's cloud-managed certificate and an App Store Connect
+#             API key (no certificates to manage, and none piling up)
 #     UPLOAD  straight to App Store Connect; it shows up in TestFlight in ~15 minutes
 #
 # One-time setup (SETUP-IOS.md): these repo secrets
@@ -49,21 +50,25 @@ jobs:
                   printf '%s' "$ASC_KEY_P8" > "$RUNNER_TEMP/keys/AuthKey_$ASC_KEY_ID.p8"
 
             # Each run gets a new build number (Apple refuses repeats)
-            - name: Build and sign
+            # The archive is only signed "for this Mac" (ad hoc). Signing it properly here made
+            # Xcode create a new Apple Development certificate on every run (each GitHub
+            # machine starts empty), until Apple's limit stopped the build. The real signing
+            # happens in the next step, with Apple's cloud-managed distribution certificate.
+            - name: Build
               run: |
                   xcodebuild archive \
                       -project ios/App/App.xcodeproj -scheme App -configuration Release \
                       -destination generic/platform=iOS \
                       -archivePath "$RUNNER_TEMP/App.xcarchive" \
                       DEVELOPMENT_TEAM=${{ secrets.APPLE_TEAM_ID }} \
-                      CODE_SIGN_STYLE=Automatic \
-                      CURRENT_PROJECT_VERSION=${{ github.run_number }} \
-                      -allowProvisioningUpdates \
-                      -authenticationKeyPath "$RUNNER_TEMP/keys/AuthKey_${{ secrets.ASC_KEY_ID }}.p8" \
-                      -authenticationKeyID ${{ secrets.ASC_KEY_ID }} \
-                      -authenticationKeyIssuerID ${{ secrets.ASC_ISSUER_ID }}
+                      CODE_SIGN_STYLE=Manual \
+                      CODE_SIGN_IDENTITY=- \
+                      AD_HOC_CODE_SIGNING_ALLOWED=YES \
+                      PROVISIONING_PROFILE_SPECIFIER= \
+                      CURRENT_PROJECT_VERSION=${{ github.run_number }}
 
-            - name: Upload to App Store Connect
+            # Signs for the App Store (cloud signing) and uploads
+            - name: Sign and upload to App Store Connect
               run: |
                   /usr/libexec/PlistBuddy -c "Add :teamID string ${{ secrets.APPLE_TEAM_ID }}" ios/ExportOptions.plist
                   xcodebuild -exportArchive \
