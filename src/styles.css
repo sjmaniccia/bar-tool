@@ -1265,3 +1265,11 @@ label.recipe-photo.empty:hover { color: var(--accent); border-color: var(--accen
 .button.disabled { opacity: 0.5; pointer-events: none; }
 .button svg, button svg { vertical-align: -3px; }
 @media (min-width: 801px) { .pick-bar { bottom: 16px; } }
+
+/* Account: bars and recipe books */
+.place-list { list-style: none; margin: 4px 0 8px; padding: 0; }
+.place-list li + li { border-top: 1px solid var(--border); }
+.place-list .place-item { padding: 11px 4px; }
+.recipe-tile-art { position: relative; }
+.tile-initial { position: absolute; inset: 0; display: grid; place-items: center; font-size: 2rem; font-weight: 700; color: rgba(0, 0, 0, 0.18); }
+.settings-links { display: flex; flex-wrap: wrap; gap: 8px 20px; margin-top: 14px; }

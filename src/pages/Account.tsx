@@ -7,11 +7,14 @@
 //     DELETE then this device is signed out and back at the sign-in screen
 
 import { useEffect, useState } from "react";
-import { Link } from "react-router";
-import { useSession } from "../cloud/session";
+import { Link, useNavigate } from "react-router";
+import { switchBar, useSession } from "../cloud/session";
 import { PRIVACY_URL } from "../native";
 import { deleteAccount, previewDeletion, type DeletionPlan } from "../cloud/account";
 import { setMyName } from "../cloud/team";
+import { useRecipesOnly } from "../data/place";
+import { setShowEverything, useSetupPrefs } from "../data/setup";
+import { currentTheme, toggleTheme } from "../theme";
 import { reloadNames } from "../cloud/names";
 import { setCelebrations, setHaptics, setSounds, useFeedbackSettings, type Celebrations } from "../feedback";
 
@@ -33,6 +36,7 @@ export default function Account() {
             <div className="page page-narrow">
                 <h1>Account</h1>
                 <p className="muted">You're using Agave without an account, so there's nothing to delete. Your data stays on this device; clear it from <Link to="/data">Backup &amp; export</Link>.</p>
+                <AppSettings />
                 <SoundSettings />
             </div>
         );
@@ -55,11 +59,12 @@ export default function Account() {
                 </div>
             </div>
 
+            <YourPlaces />
             <YourName />
+            <AppSettings />
+            <SoundSettings />
 
             <p className="muted small">How Agave handles your data: <a href={PRIVACY_URL} target="_blank" rel="noreferrer">privacy policy</a>.</p>
-
-            <SoundSettings />
 
             <section className="card danger-card">
                 <h2>Delete your account</h2>
@@ -108,6 +113,40 @@ export default function Account() {
     );
 }
 
+// Every bar and recipe book I'm in: tap one to open it, or start a new one
+function YourPlaces() {
+    const session = useSession();
+    const navigate = useNavigate();
+    const recipesOnly = useRecipesOnly();
+    const label = (b: { id: string; role: string; recipeBook: boolean }) => {
+        const book = b.id === session.bar?.id ? recipesOnly : b.recipeBook;
+        return book ? "Recipe book · " + (b.role === "manager" ? "family" : b.role) : b.role.charAt(0).toUpperCase() + b.role.slice(1);
+    };
+    async function open(id: string) {
+        if (id === session.bar?.id) return;
+        navigate("/");
+        await switchBar(id);
+    }
+    return (
+        <section className="card">
+            <h2>Your bars &amp; recipe books</h2>
+            <ul className="place-list">
+                {session.bars.map((b) => (
+                    <li key={b.id}>
+                        <button type="button" className={"place-item" + (b.id === session.bar?.id ? " current" : "")} aria-current={b.id === session.bar?.id}
+                            onClick={() => void open(b.id)}>
+                            <span className="place-check" aria-hidden="true">{b.id === session.bar?.id ? "✓" : ""}</span>
+                            <span className="place-name">{b.name}</span>
+                            <span className="muted small">{label(b)}</span>
+                        </button>
+                    </li>
+                ))}
+            </ul>
+            <Link to="/places/new" className="place-new">+ New bar or recipe book</Link>
+        </section>
+    );
+}
+
 // Your name: shown on recipes you add ("Added by Mom") and your versions ("(Mom's Version)")
 function YourName() {
     const saved = useSession().name;
@@ -139,6 +178,35 @@ function YourName() {
     );
 }
 
+// Settings that used to be in the profile menu: what shows, how it looks, backups,
+// and the POS (Send feedback stays in the profile menu)
+function AppSettings() {
+    const session = useSession();
+    const recipesOnly = useRecipesOnly();
+    const prefs = useSetupPrefs(session.bar?.id ?? "local");
+    const [theme, setTheme] = useState(currentTheme);
+    const manager = session.bar?.role !== "staff";
+    return (
+        <section className="card">
+            <h2>Settings</h2>
+            {manager && !recipesOnly && (
+                <label className="menu-toggle costing-toggle">
+                    <span><strong>Show everything</strong><span className="muted small">Every section, even ones you haven't set up yet.</span></span>
+                    <input type="checkbox" checked={prefs.showAll} onChange={(e) => setShowEverything(e.target.checked)} />
+                </label>
+            )}
+            <label className="menu-toggle costing-toggle">
+                <span><strong>Dark mode</strong></span>
+                <input type="checkbox" checked={theme === "dark"} onChange={() => setTheme(toggleTheme())} />
+            </label>
+            <div className="settings-links">
+                {manager && <Link to="/data">Backup &amp; export</Link>}
+                {manager && !recipesOnly && <Link to="/sales">Square &amp; sales</Link>}
+            </div>
+        </section>
+    );
+}
+
 // Sounds, vibration and celebrations: on by default, switches for anyone who'd rather not
 //     iPhones: sounds also stay quiet when the phone is on silent
 function SoundSettings() {
@@ -147,11 +215,11 @@ function SoundSettings() {
         <section className="card">
             <h2>Sounds &amp; celebrations</h2>
             <p className="muted small">The little chimes and pop-ups when something gets done. On an iPhone, sounds stay off while it's on silent.</p>
-            <label className="menu-toggle"><span>Sounds</span>
+            <label className="menu-toggle costing-toggle"><span><strong>Sounds</strong></span>
                 <input type="checkbox" checked={feedback.sounds} onChange={(e) => setSounds(e.target.checked)} /></label>
-            <label className="menu-toggle"><span>Vibration</span>
+            <label className="menu-toggle costing-toggle"><span><strong>Vibration</strong></span>
                 <input type="checkbox" checked={feedback.haptics} onChange={(e) => setHaptics(e.target.checked)} /></label>
-            <label className="menu-toggle"><span>Celebrations</span>
+            <label className="menu-toggle costing-toggle"><span><strong>Celebrations</strong></span>
                 <select value={feedback.celebrations} onChange={(e) => setCelebrations(e.target.value as Celebrations)}>
                     <option value="full">Full</option>
                     <option value="subtle">Subtle</option>

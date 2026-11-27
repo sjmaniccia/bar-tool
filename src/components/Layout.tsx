@@ -16,14 +16,13 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
-import { currentTheme, toggleTheme } from "../theme";
-import { leaveDemo, signOut, switchBar, useSession, clearNotice, type Session } from "../cloud/session";
+import { leaveDemo, signOut, useSession, clearNotice, type Session } from "../cloud/session";
 import { cloudEnabled } from "../cloud/client";
 import { canOpen } from "../cloud/access";
 import { useDb } from "../data/storage";
 import { createRecipe } from "../data/actions";
 import { useRecipesOnly } from "../data/place";
-import { setShowEverything, unlockedTabs, useSetupPrefs } from "../data/setup";
+import { unlockedTabs, useSetupPrefs } from "../data/setup";
 import { toast, unlockSound } from "../feedback";
 import { BrandMark } from "./BrandMark";
 import Toasts from "./Toasts";
@@ -309,23 +308,9 @@ function ActionSheet({ staff, recipesOnly, canInvite, onInvite, onClose }: { sta
 
 // ===== Top bar pieces =====
 
-// What I am there: "owner", "staff"; in a recipe book "recipe book · family"
-function placeLabel(bar: { role: string }, recipeBook: boolean): string {
-    if (!recipeBook) return bar.role;
-    return "recipe book · " + (bar.role === "manager" ? "family" : bar.role);
-}
-
-// The open place's name, or a dropdown to switch between places (computers)
-//     on phones it's hidden: "Your places" in the profile menu does the same
+// The open place's name (computers). Switching places is on the Account page.
 function BarName({ session }: { session: Session }) {
-    const navigate = useNavigate();
-    if (session.bars.length <= 1) return <span className="bar-name">{session.bar?.name}</span>;
-    return (
-        <select className="bar-switch" aria-label="Switch place" value={session.bar?.id}
-            onChange={(e) => { navigate("/"); void switchBar(e.target.value); }}>
-            {session.bars.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-    );
+    return <span className="bar-name">{session.bar?.name}</span>;
 }
 
 // A dot and a word: is everything on the server?
@@ -345,23 +330,12 @@ function SyncBadge({ session }: { session: Session }) {
     );
 }
 
-// Everything that isn't a daily task: team, backups, look and sound, sign out
+// Who's signed in, the team, feedback, Account (every other setting lives there), sign out
 function ProfileMenu({ session, recipesOnly }: { session: Session; recipesOnly: boolean }) {
     const [open, setOpen] = useState(false);
-    const [theme, setTheme] = useState(currentTheme);
     const location = useLocation();
-    const navigate = useNavigate();
-    const prefs = useSetupPrefs(session.bar?.id ?? "local");
     useEffect(() => setOpen(false), [location.pathname]);
     const ready = session.mode === "ready";
-
-    // Open another place, on its Home (the page you're on may not exist there)
-    async function goTo(barId: string) {
-        setOpen(false);
-        if (barId === session.bar?.id) return;
-        navigate("/");
-        await switchBar(barId);
-    }
 
     // Signing out wipes this device's copy, so warn if changes haven't reached the server
     async function out() {
@@ -379,33 +353,13 @@ function ProfileMenu({ session, recipesOnly }: { session: Session; recipesOnly: 
                     {ready && (
                         <>
                             <div className="account-email">{session.email}</div>
-                            <div className="menu-label">{session.bars.some((b) => b.recipeBook || (b.id === session.bar?.id && recipesOnly)) ? "Your places & recipe books" : "Your places"}</div>
-                            {session.bars.map((b) => (
-                                <button key={b.id} type="button" role="menuitemradio" aria-checked={b.id === session.bar?.id}
-                                    className={"place-item" + (b.id === session.bar?.id ? " current" : "")} onClick={() => void goTo(b.id)}>
-                                    <span className="place-check" aria-hidden="true">{b.id === session.bar?.id ? "✓" : ""}</span>
-                                    <span className="place-name">{b.name}</span>
-                                    <span className="muted small">{placeLabel(b, b.id === session.bar?.id ? recipesOnly : b.recipeBook)}</span>
-                                </button>
-                            ))}
-                            <Link to="/places/new" role="menuitem" className="place-new">+ New bar or recipe book</Link>
+                            <div className="muted small">{session.bar?.name}</div>
                             <div className="menu-rule" />
                             {session.bar?.role !== "staff" && <Link to="/team" role="menuitem">{recipesOnly ? "People & settings" : "Team"}</Link>}
                         </>
                     )}
-                    {session.bar?.role !== "staff" && <Link to="/data" role="menuitem">Backup &amp; export</Link>}
-                    {session.bar?.role !== "staff" && !recipesOnly && <Link to="/sales" role="menuitem">Square &amp; sales</Link>}
-                    <div className="menu-rule" />
-                    {session.bar?.role !== "staff" && !recipesOnly && (
-                        <label className="menu-toggle"><span>Show everything</span>
-                            <input type="checkbox" checked={prefs.showAll} onChange={(e) => setShowEverything(e.target.checked)} /></label>
-                    )}
-                    <button className="link-button" role="menuitem" onClick={() => setTheme(toggleTheme())}>
-                        {theme === "dark" ? "Light mode" : "Dark mode"}
-                    </button>
-                    <div className="menu-rule" />
                     <Link to="/feedback" state={{ from: location.pathname }} role="menuitem" onClick={() => setOpen(false)}>Send feedback</Link>
-                    <Link to="/account" role="menuitem">Account</Link>
+                    <Link to="/account" role="menuitem">Account &amp; settings</Link>
                     {ready && <button className="link-button" role="menuitem" onClick={() => void out()}>Sign out</button>}
                     {session.demo && cloudEnabled && <button className="link-button" role="menuitem" onClick={leaveDemo}>Sign in</button>}
                 </div>

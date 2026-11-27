@@ -13,7 +13,7 @@
 //
 // A "Just recipes" place (data/place.ts) gets a simpler Home:
 //     no recipes yet   "Let's get your family's recipes in": scan or type one
-//     after that       share them with family (the owner, until someone joins), then the recipes
+//     after that       the recipes, front and center (inviting family is the top bar's button)
 //     no steps, costs or "Today"
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
@@ -63,19 +63,7 @@ function FamilyHome() {
     const db = useDb();
     const session = useSession();
     const navigate = useNavigate();
-    const placeId = session.bar?.id ?? "local";
-    const prefs = useSetupPrefs(placeId);
-    const isOwner = session.mode === "ready" && session.bar?.role === "owner";
     const newRecipe = () => navigate("/recipes/" + createRecipe("New recipe") + "?edit=1");
-
-    // Is anyone else in yet? (only the owner is asked to invite)
-    const [alone, setAlone] = useState(false);
-    useEffect(() => {
-        if (!isOwner || !session.bar) return;
-        let current = true;
-        listMembers(session.bar.id).then((m) => { if (current) setAlone(m.length <= 1); }).catch(() => undefined);
-        return () => { current = false; };
-    }, [isOwner, session.bar]);
 
     if (db.recipes.length === 0) {
         return (
@@ -85,28 +73,11 @@ function FamilyHome() {
             </div>
         );
     }
-    const askToShare = alone && !prefs.later.includes("team");
     return (
         <div className="page home">
             {session.mode === "ready" && session.name === "" && <AskMyName />}
-            <div className="home-head">
-                <div>
-                    <div className="muted small">{session.bar?.name ?? "Your recipes"}</div>
-                    <h1>Your recipes</h1>
-                </div>
-                <div className="button-row">
-                    {cloudEnabled && <Link className="button secondary" to="/recipes/scan">Scan more</Link>}
-                    <button className="secondary" onClick={newRecipe}>Type one in</button>
-                </div>
-            </div>
-            {askToShare && (
-                <section className="card step-card">
-                    <h2 className="step-title">Share them with family</h2>
-                    <p className="step-body">Everyone you invite can cook from them on their phone, and add their own.</p>
-                    <InviteCard compact />
-                    <button className="link-button step-later" onClick={() => putOff(placeId, "team")}>Not now</button>
-                </section>
-            )}
+            {/* The recipe book's name, then its recipes; adding more is the + button */}
+            <h1>{session.bar?.name ?? "Your recipes"}</h1>
             <RecipeStrip db={db} noCosts all />
         </div>
     );
@@ -443,7 +414,7 @@ function RecipeStrip({ db, noCosts = false, all = false }: { db: Database; noCos
     return (
         <section className="home-recipes">
             <div className="home-recipes-head">
-                <span className="section-label">YOUR RECIPES · {db.recipes.length}</span>
+                <span className="section-label">{noCosts ? "RECIPES" : "YOUR RECIPES"} · {db.recipes.length}</span>
                 <Link to="/recipes">See all</Link>
             </div>
             <div className="recipe-tiles">
@@ -459,7 +430,8 @@ function RecipeStrip({ db, noCosts = false, all = false }: { db: Database; noCos
                     return (
                         <Link key={recipe.id} to={"/recipes/" + recipe.id} className="recipe-tile">
                             <span className="recipe-tile-art" style={{ background: TINTS[recipe.type] }}>
-                                {recipe.photo ? <img src={recipe.photo} alt="" /> : null}
+                                {recipe.photo ? <img src={recipe.photo} alt="" />
+                                    : noCosts ? <span className="tile-initial" aria-hidden="true">{recipe.name.trim().charAt(0).toUpperCase()}</span> : null}
                             </span>
                             <strong>{recipe.name}</strong>
                             {noCosts ? null : !priced
