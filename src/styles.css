@@ -1429,3 +1429,36 @@ label.recipe-photo.empty:hover { color: var(--accent); border-color: var(--accen
 .todo-action { font-size: 0.82rem; font-weight: 600; color: var(--accent); flex: 0 0 auto; }
 .what-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .what-chips .chip { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--muted); font-size: 0.85rem; text-decoration: none; }
+
+/* Icon header: title (or search) on the left, round icons on the right */
+.icon-header { flex-wrap: nowrap !important; align-items: center; gap: 10px; }
+.icon-header h1 { margin: 0; flex: 1; min-width: 0; }
+.icon-header .search-box { flex: 1; max-width: none; min-width: 0; }
+.icon-bar { display: flex; gap: 6px; flex: 0 0 auto; align-items: center; }
+.icon-circle.on { background: var(--accent-soft); border-color: var(--accent); }
+.icon-circle.solid, .icon-circle.solid:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.pick-hint { margin: -6px 0 0; }
+.pop-wrap { position: relative; display: inline-flex; }
+.pop-backdrop { position: fixed; inset: 0; z-index: 40; }
+.pop-menu { position: absolute; top: calc(100% + 6px); right: 0; z-index: 41; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.14); padding: 6px; display: grid; min-width: 210px; }
+.pop-title { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); padding: 6px 10px 4px; }
+.pop-item, .pop-item:hover { display: flex; justify-content: space-between; gap: 12px; background: none; border: 0; color: var(--text); padding: 9px 10px; border-radius: 8px; text-align: left; font-weight: 500; }
+.pop-item:hover { background: var(--hover); }
+.pop-item[aria-checked="true"] { color: var(--accent); }
+
+.pick-actions { display: flex; gap: 8px; }
+.pick-actions .icon-circle { width: 42px; height: 42px; }
+.icon-circle.disabled, .icon-circle:disabled { opacity: 0.4; pointer-events: none; }
+.danger-icon { color: #c0392b; }
+.sheet-list { margin-top: 12px; }
+.sheet-pick, .sheet-pick:hover { width: 100%; background: none; border: 0; text-align: left; font: inherit; padding: 0; }
+.new-menu-line { margin-top: 4px; }
+.pick-actions.labeled .icon-circle { width: auto; min-width: 54px; height: 50px; border-radius: 12px; flex-direction: column; gap: 2px; padding: 4px 8px; }
+.icon-label { font-size: 0.68rem; font-weight: 600; line-height: 1; }
+.pop-segment { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 2px 4px 6px; }
+.pop-segment button, .pop-segment button:hover { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 7px; border-radius: 8px; border: 1px solid var(--border); background: var(--surface); color: var(--text); font-weight: 500; }
+.pop-segment button[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.new-menu-line { display: flex !important; gap: 8px; flex-wrap: nowrap; }
+.new-menu-line input { flex: 1; min-width: 0; }
+.new-menu-line button { flex: 0 0 auto; }
+.pick-actions a.icon-circle { text-decoration: none; }
