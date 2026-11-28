@@ -56,6 +56,8 @@ beforeAll(async () => {
     await db.exec(readFileSync(new URL("./feedback.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./recipes-only.sql", import.meta.url), "utf8"));
     await db.exec(readFileSync(new URL("./recipes-only.sql", import.meta.url), "utf8"));   // safe to run twice
+    await db.exec(readFileSync(new URL("./owner-handoff.sql", import.meta.url), "utf8"));
+    await db.exec(readFileSync(new URL("./owner-handoff.sql", import.meta.url), "utf8"));  // safe to run twice
     await db.exec(`
         insert into auth.users values
             ('${OWNER}', 'owner@bar.com', now()),
@@ -409,6 +411,47 @@ describe("Just recipes places have no staff", () => {
     test("a bar is untouched", async () => {
         const staff = await as(OWNER, "select role from public.members where bar_id = $1 and user_id = $2", [barId, STAFF]);
         expect(staff.rows).toEqual([{ role: "staff" }]);
+    });
+});
+
+describe("handing a place to its real owner", () => {
+    const SHIFT = "00000000-0000-0000-0000-0000000000d1";     // the manager on shift who set it up
+    const BOSS = "00000000-0000-0000-0000-0000000000d2";      // the real owner
+    const OTHER = "00000000-0000-0000-0000-0000000000d3";
+    let place = "";
+
+    test("only an owner makes the link, and not for themselves", async () => {
+        await db.exec(`insert into auth.users values ('${SHIFT}', 'shift@bar.com', now()), ('${BOSS}', 'boss@bar.com', now()), ('${OTHER}', 'other@bar.com', now())`);
+        place = (await as(SHIFT, "select public.create_bar('Corner Bar') as id")).rows[0].id as string;
+        await expect(as(OTHER, "select public.make_handoff_link($1)", [place])).rejects.toThrow(/Only an owner/);
+        const code = (await as(SHIFT, "select public.make_handoff_link($1) as code", [place])).rows[0].code as string;
+        await expect(as(SHIFT, "select public.join_with_link($1)", [code])).rejects.toThrow(/real owner/);
+        expect((await as(null, "select * from public.peek_invite_link($1)", [code])).rows[0]).toMatchObject({ bar_name: "Corner Bar", role: "owner" });
+    });
+
+    test("the real owner takes over; the one who set it up becomes a manager; the link is used up", async () => {
+        const code = (await as(SHIFT, "select public.make_handoff_link($1) as code", [place])).rows[0].code as string;
+        await as(BOSS, "select public.join_with_link($1)", [code]);
+        const roles = await as(BOSS, "select user_id, role from public.members where bar_id = $1 order by role", [place]);
+        expect(roles.rows).toEqual([{ user_id: SHIFT, role: "manager" }, { user_id: BOSS, role: "owner" }]);
+        await expect(as(OTHER, "select public.join_with_link($1)", [code])).rejects.toThrow(/doesn't work anymore/);
+        await expect(as(SHIFT, "select public.make_handoff_link($1)", [place])).rejects.toThrow(/Only an owner/);
+    });
+
+    test("a new link turns off the old one; someone already in gets promoted", async () => {
+        const first = (await as(BOSS, "select public.make_handoff_link($1) as code", [place])).rows[0].code as string;
+        const second = (await as(BOSS, "select public.make_handoff_link($1) as code", [place])).rows[0].code as string;
+        await expect(as(SHIFT, "select public.join_with_link($1)", [first])).rejects.toThrow(/doesn't work anymore/);
+        await as(SHIFT, "select public.join_with_link($1)", [second]);
+        const roles = await as(BOSS, "select user_id, role from public.members where bar_id = $1 order by user_id", [place]);
+        expect(roles.rows).toEqual([{ user_id: SHIFT, role: "owner" }, { user_id: BOSS, role: "manager" }]);
+    });
+
+    test("ordinary staff links work as before", async () => {
+        const code = (await as(SHIFT, "select public.make_invite_link($1) as code", [place])).rows[0].code as string;
+        await as(OTHER, "select public.join_with_link($1)", [code]);
+        const other = await as(SHIFT, "select role from public.members where bar_id = $1 and user_id = $2", [place, OTHER]);
+        expect(other.rows).toEqual([{ role: "staff" }]);
     });
 });
 

@@ -147,7 +147,7 @@ async function signedIn(user: User) {
     if (joinedBar) {
         write(BAR_KEY, joinedBar);
         const bar = bars.find((b) => b.id === joinedBar);
-        if (bar) set({ notice: "You joined " + bar.name + (bar.recipeBook ? ". Welcome!" : ". Welcome to the team.") });
+        if (bar) set({ notice: bar.role === "owner" ? "You're now the owner of " + bar.name + "." : "You joined " + bar.name + (bar.recipeBook ? ". Welcome!" : ". Welcome to the team.") });
     }
     const saved = bars.find((b) => b.id === read(BAR_KEY)) ?? bars[0] ?? null;
     if (saved === null) {

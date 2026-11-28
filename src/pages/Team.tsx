@@ -52,7 +52,7 @@ export default function Team() {
         ? { owner: "Owner", manager: "Family", staff: "Staff" }
         : { owner: "Owner", manager: "Manager", staff: "Staff" };
     const roleNotes: Record<Role, string> = recipesOnly
-        ? { owner: "Everything: changes anyone's recipes, and who's in it", manager: "Adds recipes and changes their own. For anyone else's, makes their own version.", staff: "Spec books only" }
+        ? { owner: "Everything: changes anyone's recipes, and who's in it", manager: "Adds recipes and changes their own. For anyone else's, makes their own version.", staff: "Spec sheets only" }
         : ROLE_NOTES;
     const shownRoles: Role[] = recipesOnly ? ["owner", "manager"] : ["owner", "manager", "staff"];
 

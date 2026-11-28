@@ -86,7 +86,7 @@ export async function renameBar(barId: string, name: string): Promise<string | n
 export const ROLE_NOTES: Record<Role, string> = {
     owner: "Everything, including who's on the team",
     manager: "Everything except changing owners and managers",
-    staff: "Counts, waste log, training and spec books"
+    staff: "Counts, waste log, training and spec sheets"
 };
 
 
@@ -109,6 +109,14 @@ export interface InviteLink {
 export function linkUrl(code: string): string {
     const site = isNative ? WEB_ADDRESS : location.origin + location.pathname;
     return site + "?join=" + code;
+}
+
+// A one-time link that hands the open place to its real owner (owner-handoff.sql):
+// whoever opens it becomes the owner, and I become a manager. Works for 7 days.
+export async function makeHandoffLink(barId: string): Promise<{ url: string } | { error: string }> {
+    const { data, error } = await supabase!.rpc("make_handoff_link", { target_bar: barId });
+    if (error) return { error: error.message.includes("function") ? "Hand-over isn't set up yet: run owner-handoff.sql in Supabase." : error.message };
+    return { url: linkUrl(data as string) };
 }
 
 // The same invite, opening the iPhone app instead of the website

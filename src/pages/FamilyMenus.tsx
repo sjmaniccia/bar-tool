@@ -17,7 +17,10 @@ import type { Menu } from "../data/types";
 import { useMemberNames, useRecipeRights } from "../cloud/names";
 import { useSession } from "../cloud/session";
 import TextInput from "../components/TextInput";
+import EditableTitle from "../components/EditableTitle";
+import PencilIcon from "../components/PencilIcon";
 import { CART_ICON, Icon } from "./Groceries";
+import { MenuPeek } from "./MenusList";
 
 // ===== All menus =====
 
@@ -34,7 +37,7 @@ export function FamilyMenusList() {
     }
 
     return (
-        <div className="page">
+        <div className="page menu-page tile-page">
             <div className="page-header">
                 <div>
                     <h1>Menus</h1>
@@ -48,18 +51,19 @@ export function FamilyMenusList() {
             {db.menus.length === 0 ? (
                 <section className="card empty">No menus yet. Name one above, then add recipes to it.</section>
             ) : (
-                <ul className="card recipe-plain-list">
+                <ul className="card menu-lines">
                     {[...db.menus].sort((a, b) => a.name.localeCompare(b.name)).map((menu) => {
-                        const count = itemsOf(menu.id).filter((i) => findById(db.recipes, i.recipeId)).length;
+                        const dishes = itemsOf(menu.id).map((i) => findById(db.recipes, i.recipeId)).filter((r) => r !== null);
                         const by = names.get(menu.createdBy);
                         return (
-                            <li key={menu.id}>
-                                <Link to={"/menus/" + menu.id}>
-                                    <span className="recipe-plain-name">
+                            <li key={menu.id} className="menu-line">
+                                <Link to={"/menus/" + menu.id} className="menu-line-row menu-list-row">
+                                    <MenuPeek name={menu.name} />
+                                    <span className="menu-list-name">
                                         <strong>{menu.name}</strong>
-                                        {by && <span className="muted small">Made by {by}</span>}
+                                        <span className="muted small">{dishes.length} {dishes.length === 1 ? "dish" : "dishes"}{by ? " · by " + by : ""}</span>
                                     </span>
-                                    <span className="muted small">{count} {count === 1 ? "dish" : "dishes"}</span>
+                                    <span className="chevron" aria-hidden="true">›</span>
                                 </Link>
                             </li>
                         );
@@ -79,6 +83,7 @@ export function FamilyMenuDetail({ menu }: { menu: Menu }) {
     const names = useMemberNames();
     const { canEdit: runsIt, addedBy: madeBy } = useRecipeRights(menu);
     const [adding, setAdding] = useState("");
+    const [open, setOpen] = useState<string | null>(null);      // the one line being edited
 
     const items = itemsOf(menu.id).filter((i) => findById(db.recipes, i.recipeId));
     const onMenu = new Set(items.map((i) => i.recipeId));
@@ -92,72 +97,76 @@ export function FamilyMenuDetail({ menu }: { menu: Menu }) {
     }
 
     return (
-        <div className="page">
-            <Link to="/menus" className="back">← Menus</Link>
-            <div className="page-header">
-                <div>
-                    <h1>{menu.name}</h1>
-                    <p className="muted">
-                        {[madeBy && "Made by " + madeBy, items.length + (items.length === 1 ? " dish" : " dishes")].filter(Boolean).join(" · ")}
-                    </p>
-                    {menu.description && <p className="muted">{menu.description}</p>}
-                </div>
+        <div className="page menu-page">
+            <div className="family-top">
+                <Link to="/menus" className="back">← Menus</Link>
                 {items.length > 0 && (
-                    <Link className="button secondary" to={"/groceries/new?menu=" + menu.id}><Icon d={CART_ICON} size={18} /> Grocery list</Link>
+                    <Link className="icon-button plain" to={"/groceries/new?menu=" + menu.id} aria-label="Grocery list" title="Grocery list"><Icon d={CART_ICON} /></Link>
                 )}
             </div>
+            <div>
+                <EditableTitle value={menu.name} label="Menu name" readOnly={!runsIt} onSave={(name) => updateMenu(menu.id, { name })} />
+                {runsIt ? (
+                    <TextInput className="menu-note-input" value={menu.description} placeholder="+ Add a note: when it's made, who's coming"
+                        ariaLabel="Menu note" onSave={(description) => updateMenu(menu.id, { description })} />
+                ) : menu.description && <p className="muted">{menu.description}</p>}
+            </div>
+            <div className="menu-stats">
+                <span><strong>{items.length}</strong> {items.length === 1 ? "dish" : "dishes"}</span>
+                {madeBy && <span>Made by <strong>{madeBy}</strong></span>}
+            </div>
 
-            <ul className="card recipe-plain-list">
-                {items.length === 0 && <li className="card-pad muted">Nothing yet. Add a recipe below.</li>}
+            {/* One line per dish; the pencil moves it or takes it off (if it's yours to change) */}
+            <ul className="card menu-lines">
+                {items.length === 0 && <li className="menu-line-empty muted">Nothing yet. Add a recipe below.</li>}
                 {items.map((item, i) => {
                     const recipe = findById(db.recipes, item.recipeId)!;
                     const broughtBy = item.createdBy && item.createdBy !== menu.createdBy ? names.get(item.createdBy) : "";
+                    const canTakeOff = runsIt || mine(item.createdBy);
+                    const isOpen = open === item.id;
                     return (
-                        <li key={item.id} className="menu-dish">
-                            <Link to={"/recipes/" + recipe.id}>
-                                {recipe.photo
-                                    ? <img className="recipe-thumb" src={recipe.photo} alt="" loading="lazy" />
-                                    : <span className="recipe-thumb empty" aria-hidden="true" />}
-                                <span className="recipe-plain-name">
+                        <li key={item.id} className={"menu-line" + (isOpen ? " open" : "")}>
+                            <div className="menu-line-row">
+                                <Link to={"/recipes/" + recipe.id} className="menu-line-name">
+                                    {recipe.photo
+                                        ? <img className="menu-line-thumb" src={recipe.photo} alt="" loading="lazy" />
+                                        : <span className="menu-line-thumb" style={{ background: "#efe6da" }} aria-hidden="true">{recipe.name.charAt(0)}</span>}
                                     <strong>{recipe.name}</strong>
-                                    {broughtBy && <span className="muted small">Added by {broughtBy}</span>}
-                                </span>
-                            </Link>
-                            <span className="menu-dish-actions">
-                                {runsIt && (
-                                    <>
-                                        <button className="icon-button secondary" aria-label={"Move " + recipe.name + " up"} disabled={i === 0} onClick={() => moveItem(item.id, -1)}>↑</button>
-                                        <button className="icon-button secondary" aria-label={"Move " + recipe.name + " down"} disabled={i === items.length - 1} onClick={() => moveItem(item.id, 1)}>↓</button>
-                                    </>
+                                </Link>
+                                {broughtBy && <span className="menu-line-nums muted">{broughtBy}</span>}
+                                {(runsIt || canTakeOff) && (
+                                    <button type="button" className="pencil" aria-label={"Edit " + recipe.name + " on this menu"} aria-expanded={isOpen}
+                                        onClick={() => setOpen(isOpen ? null : item.id)}><PencilIcon /></button>
                                 )}
-                                {(runsIt || mine(item.createdBy)) && (
-                                    <button className="icon-button secondary" aria-label={"Take " + recipe.name + " off the menu"} onClick={() => removeFromMenu(item.id)}>✕</button>
-                                )}
-                            </span>
+                            </div>
+                            {isOpen && (
+                                <div className="line-editor menu-line-editor">
+                                    <div className="line-editor-actions line-editor-wide">
+                                        {runsIt && (
+                                            <span className="button-row">
+                                                <button type="button" className="secondary icon-button" aria-label="Move up" disabled={i === 0} onClick={() => moveItem(item.id, -1)}>↑</button>
+                                                <button type="button" className="secondary icon-button" aria-label="Move down" disabled={i === items.length - 1} onClick={() => moveItem(item.id, 1)}>↓</button>
+                                            </span>
+                                        )}
+                                        {canTakeOff && <button type="button" className="link-button danger-link" onClick={() => { removeFromMenu(item.id); setOpen(null); }}>Take off the menu</button>}
+                                        <button type="button" onClick={() => setOpen(null)}>Done</button>
+                                    </div>
+                                </div>
+                            )}
                         </li>
                     );
                 })}
+                <li className="add-line menu-add">
+                    <select value={adding} aria-label="Add a recipe" onChange={(e) => setAdding(e.target.value)}>
+                        <option value="">+ Add a recipe…</option>
+                        {canAdd.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                    <button className="secondary" disabled={adding === ""} onClick={() => { addToMenu(menu.id, adding); setAdding(""); }}>Add</button>
+                </li>
             </ul>
 
-            <div className="add-line">
-                <select value={adding} aria-label="Add a recipe" onChange={(e) => setAdding(e.target.value)}>
-                    <option value="">Add a recipe to {menu.name}…</option>
-                    {canAdd.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
-                <button className="secondary" disabled={adding === ""} onClick={() => { addToMenu(menu.id, adding); setAdding(""); }}>Add</button>
-            </div>
-
             {runsIt && (
-                <section className="card">
-                    <h2>Details</h2>
-                    <div className="form-grid">
-                        <label className="form-field"><span>Name</span>
-                            <TextInput value={menu.name} required onSave={(name) => updateMenu(menu.id, { name })} /></label>
-                        <label className="form-field"><span>Note</span>
-                            <TextInput value={menu.description} placeholder="When it's made, who's coming" onSave={(description) => updateMenu(menu.id, { description })} /></label>
-                    </div>
-                    <button className="danger" onClick={remove}>Delete menu</button>
-                </section>
+                <button className="link-button danger-link family-delete" onClick={remove}><Icon d="M4 7h16 M10 11v6 M14 11v6 M6 7l1 13h10l1-13 M9 7V4h6v3" size={16} /> Delete menu</button>
             )}
         </div>
     );

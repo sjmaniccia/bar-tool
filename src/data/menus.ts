@@ -1,6 +1,6 @@
 // ===== menus.ts =====
 // Menus group recipes (the fall cocktail list, the brunch menu) so you can see
-// the costs of a whole menu at once and print a spec book for staff.
+// the costs of a whole menu at once and print a spec sheet for staff.
 // In a recipe book, a menu is a meal (Thanksgiving): anyone adds dishes; the one who made
 // the menu (or the owner) renames, reorders, deletes it or takes dishes off. You can
 // always take off a dish you added. (recipes-only.sql enforces it.)

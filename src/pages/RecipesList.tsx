@@ -2,6 +2,8 @@
 // All recipes in a table: search, sort, and click a row to open it.
 // A "Just recipes" place: a plain list instead (picture, name, serves), A to Z, no costs.
 //     Select -> tick recipes -> "Grocery list" makes one list from them (Groceries.tsx)
+// Shown as a grid of small tiles (3 across on a phone, cost % on each); bars can switch to
+// the detailed table with the list icon.
 
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
@@ -12,7 +14,10 @@ import { formatFraction, formatMoney, formatPercent } from "../data/utils";
 import { useRecipesOnly } from "../data/place";
 import { useMemberNames } from "../cloud/names";
 import { CART_ICON, Icon } from "./Groceries";
+import { MiniGrid, MiniTile } from "../components/MiniGrid";
 import type { Recipe } from "../data/types";
+
+const TINTS: Record<Recipe["type"], string> = { Cocktail: "#f3ead8", Dish: "#efe6da", Beer: "#f3f1dc", Prep: "#e6efe9" };
 
 type SortKey = "name" | "type" | "cost" | "ingredientRatio" | "profit";
 
@@ -32,6 +37,11 @@ export default function RecipesList() {
     const [sort, setSortKey] = useState<SortKey>("name");
     const recipesOnly = useRecipesOnly();
     const names = useMemberNames();
+    // Grid (default) or the detailed table, remembered on this device
+    const [view, setViewState] = useState<"grid" | "list">(() => {
+        try { return localStorage.getItem("agave.recipeView") === "list" ? "list" : "grid"; } catch { return "grid"; }
+    });
+    const setView = (v: "grid" | "list") => { setViewState(v); try { localStorage.setItem("agave.recipeView", v); } catch { /* private mode */ } };
     const [picked, setPicked] = useState<Set<string> | null>(null);     // null = not selecting
     const togglePick = (id: string) => {
         const next = new Set(picked);
@@ -63,7 +73,7 @@ export default function RecipesList() {
     }
 
     return (
-        <div className="page">
+        <div className="page tile-page">
             <div className="page-header">
                 <h1>All Recipes</h1>
                 <div className="button-row">
@@ -77,6 +87,16 @@ export default function RecipesList() {
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5" /><path d="M16 16l4.5 4.5" /></svg>
                     <input type="search" aria-label="Search recipes" value={search} onChange={(e) => setSearch(e.target.value)} />
                 </label>
+                {!recipesOnly && (
+                    <span className="view-toggle" role="group" aria-label="Show as">
+                        <button aria-pressed={view === "grid"} aria-label="Grid" title="Grid" onClick={() => setView("grid")}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M4 4h6v6H4z M14 4h6v6h-6z M4 14h6v6H4z M14 14h6v6h-6z" /></svg>
+                        </button>
+                        <button aria-pressed={view === "list"} aria-label="List with costs" title="List with costs" onClick={() => setView("list")}>
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" aria-hidden="true"><path d="M4 6h16 M4 12h16 M4 18h16" /></svg>
+                        </button>
+                    </span>
+                )}
                 {recipesOnly && db.recipes.length > 0 && (
                     <button className="secondary" onClick={() => setPicked(picked ? null : new Set())}>{picked ? "Cancel" : "Select"}</button>
                 )}
@@ -101,29 +121,25 @@ export default function RecipesList() {
                         : "No recipes match that search."}
                 </section>
             ) : recipesOnly ? (
-                <ul className="card recipe-plain-list">
-                    {rows.map(({ recipe }) => picked ? (
-                        <li key={recipe.id}>
-                            <label className="recipe-pick">
-                                <input type="checkbox" checked={picked.has(recipe.id)} onChange={() => togglePick(recipe.id)} />
-                                <span className="recipe-plain-name"><strong>{recipe.name}</strong></span>
-                            </label>
-                        </li>
-                    ) : (
-                        <li key={recipe.id}>
-                            <Link to={"/recipes/" + recipe.id}>
-                                {recipe.photo
-                                    ? <img className="recipe-thumb" src={recipe.photo} alt="" loading="lazy" />
-                                    : <span className="recipe-thumb empty" aria-hidden="true" />}
-                                <span className="recipe-plain-name">
-                                    <strong>{recipe.name}</strong>
-                                    {names.get(recipe.createdBy) && <span className="muted small">Added by {names.get(recipe.createdBy)}</span>}
-                                </span>
-                                {recipe.yieldUnit === "serving" && recipe.yieldAmount > 1 && <span className="muted small">Serves {formatFraction(recipe.yieldAmount)}</span>}
-                            </Link>
-                        </li>
+                <MiniGrid>
+                    {rows.map(({ recipe }) => (
+                        <MiniTile key={recipe.id} name={recipe.name} photo={recipe.photo || undefined}
+                            meta={names.get(recipe.createdBy) ? "By " + names.get(recipe.createdBy) : recipe.yieldUnit === "serving" && recipe.yieldAmount > 1 ? "Serves " + formatFraction(recipe.yieldAmount) : undefined}
+                            to={"/recipes/" + recipe.id} picked={picked ? picked.has(recipe.id) : null} onClick={() => togglePick(recipe.id)} />
                     ))}
-                </ul>
+                </MiniGrid>
+            ) : view === "grid" ? (
+                <MiniGrid>
+                    {rows.map(({ recipe, summary }) => {
+                        const over = summary?.ingredientRatio != null && summary.ingredientRatio > summary.targetCost + 0.05;
+                        return (
+                            <MiniTile key={recipe.id} name={recipe.name} photo={recipe.photo || undefined} tint={TINTS[recipe.type]} to={"/recipes/" + recipe.id}
+                                badge={summary !== null && summary.missing.length > 0 ? "no price" : undefined}
+                                meta={<>{summary?.ingredientRatio != null ? <span className={over ? "warn" : ""}>{formatPercent(summary.ingredientRatio)}</span> : recipe.type}
+                                    {recipe.menuPrice !== null ? " · " + formatMoney(recipe.menuPrice) : ""}</>} />
+                        );
+                    })}
+                </MiniGrid>
             ) : (
                 <div className="card table-card">
                     <table className="table">

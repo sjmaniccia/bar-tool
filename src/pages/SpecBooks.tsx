@@ -1,5 +1,5 @@
 // ===== SpecBooks.tsx =====
-// Every menu's spec book, without costs, so staff can study and print them.
+// Every menu's spec sheet, without costs, so staff can study and print them.
 
 import { Link } from "react-router";
 import { useDb } from "../data/storage";
@@ -11,7 +11,7 @@ export default function SpecBooks() {
         <div className="page">
             <div className="page-header">
                 <div>
-                    <h1>Spec books</h1>
+                    <h1>Spec sheets</h1>
                     <p className="muted">Every recipe on each menu: the build, glass or plate, garnish and method. No costs, so they can go where the staff work.</p>
                 </div>
             </div>

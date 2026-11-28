@@ -2,7 +2,7 @@
 // The frame around every page.
 //
 //     PHONE     a tab bar at the bottom: Home · Recipes · (+) · Stock · Numbers
-//               the current section's pages as pills at the top (Menus, Spec books...)
+//               the current section's pages as pills at the top (Menus, Spec sheets...)
 //     COMPUTER  the same sections down the left, with their pages under them
 //     TOP BAR   the place's name, saved/offline, Invite (always one tap away), the profile menu
 //
@@ -14,7 +14,7 @@
 // A "Just recipes" place (data/place.ts) gets Home and Recipes only, and a + with
 // recipe things: scan, new, invite family. No costs, stock, sales or invoices.
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router";
 import { leaveDemo, signOut, useSession, clearNotice, type Session } from "../cloud/session";
 import { cloudEnabled } from "../cloud/client";
@@ -26,6 +26,7 @@ import { unlockedTabs, useSetupPrefs } from "../data/setup";
 import { toast, unlockSound } from "../feedback";
 import { BrandMark } from "./BrandMark";
 import Toasts from "./Toasts";
+import Sheet from "./Sheet";
 import InviteCard from "./InviteCard";
 
 type SectionId = "home" | "recipes" | "stock" | "numbers" | "staff-specs" | "staff-training" | "staff-counts" | "staff-waste";
@@ -57,24 +58,24 @@ const MANAGER_SECTIONS: Section[] = [
         pages: [
             { to: "/recipes", label: "All recipes" },
             { to: "/menus", label: "Menus" },
-            { to: "/specs", label: "Spec books" },
+            { to: "/ingredients", label: "Ingredients" },     // what recipes are made of (Products, in Stock, is what you buy)
+            { to: "/specs", label: "Spec sheets" },
             { to: "/training", label: "Training" },
             { to: "/classics", label: "Classics" }
         ],
-        match: ["/recipes", "/menus", "/specs", "/training", "/classics"]
+        match: ["/recipes", "/menus", "/ingredients", "/specs", "/training", "/classics"]
     },
     {
         id: "stock", label: "Stock", to: "/counts", icon: ICONS.stock,
         pages: [
             { to: "/counts", label: "Counts" },
             { to: "/products", label: "Products" },
-            { to: "/ingredients", label: "Ingredients" },
             { to: "/orders", label: "Orders" },
             { to: "/invoices", label: "Invoices" },
             { to: "/vendors", label: "Vendors" },
             { to: "/waste", label: "Waste" }
         ],
-        match: ["/counts", "/products", "/ingredients", "/orders", "/invoices", "/vendors", "/waste"]
+        match: ["/counts", "/products", "/orders", "/invoices", "/vendors", "/waste"]
     },
     {
         id: "numbers", label: "Numbers", to: "/dashboard", icon: ICONS.numbers,
@@ -98,7 +99,7 @@ const FAMILY_SECTIONS: Section[] = [
 ];
 
 const STAFF_SECTIONS: Section[] = [
-    { id: "staff-specs", label: "Specs", to: "/specs", icon: ICONS.recipes, pages: [{ to: "/specs", label: "Spec books" }, { to: "/classics", label: "Classics" }], match: ["/specs", "/menus", "/classics"] },
+    { id: "staff-specs", label: "Specs", to: "/specs", icon: ICONS.recipes, pages: [{ to: "/specs", label: "Spec sheets" }, { to: "/classics", label: "Classics" }], match: ["/specs", "/menus", "/classics"] },
     { id: "staff-training", label: "Training", to: "/training", icon: ICONS.training, pages: [], match: ["/training"] },
     { id: "staff-counts", label: "Counts", to: "/counts", icon: ICONS.stock, pages: [], match: ["/counts"] },
     { id: "staff-waste", label: "Waste", to: "/waste", icon: ICONS.waste, pages: [], match: ["/waste"] }
@@ -146,7 +147,7 @@ export default function Layout() {
     }, [session.notice]);
 
     const staff = role === "staff";
-    // Staff start on the spec books (Home and recipes show costs)
+    // Staff start on the spec sheets (Home and recipes show costs)
     if (staff && (location.pathname === "/" || location.pathname === "/recipes")) return <Navigate to="/specs" replace />;
 
     const unlocked = unlockedTabs(data, prefs.showAll);
@@ -229,8 +230,8 @@ export default function Layout() {
             <Toasts />
             {sheet === "actions" && <ActionSheet staff={staff} recipesOnly={recipesOnly} canInvite={canInvite} onInvite={() => setSheet("invite")} onClose={() => setSheet(null)} />}
             {sheet === "invite" && (
-                <Sheet title={recipesOnly ? "Invite family" : "Invite your team"} onClose={() => setSheet(null)}>
-                    <InviteCard compact fullAtStart />
+                <Sheet title="Share recipes" onClose={() => setSheet(null)}>
+                    <InviteCard compact />
                 </Sheet>
             )}
         </div>
@@ -238,51 +239,42 @@ export default function Layout() {
 }
 
 
-// ===== Sheets (a bottom sheet on phones, a centered box on computers) =====
-
-function Sheet({ title, onClose, children }: { title: string; onClose: () => void; children: ReactNode }) {
-    useEffect(() => {
-        const key = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-        window.addEventListener("keydown", key);
-        return () => window.removeEventListener("keydown", key);
-    }, [onClose]);
-    return (
-        <div className="sheet-backdrop no-print" onClick={onClose}>
-            <div className="sheet" role="dialog" aria-modal="true" aria-label={title} onClick={(e) => e.stopPropagation()}>
-                <div className="sheet-handle" aria-hidden="true" />
-                <div className="sheet-head">
-                    <h2>{title}</h2>
-                    <button className="icon-circle" aria-label="Close" onClick={onClose}>×</button>
-                </div>
-                {children}
-            </div>
-        </div>
-    );
-}
 
 function ActionSheet({ staff, recipesOnly, canInvite, onInvite, onClose }: { staff: boolean; recipesOnly: boolean; canInvite: boolean; onInvite: () => void; onClose: () => void }) {
     const navigate = useNavigate();
+    const location = useLocation();
     const go = (to: string) => { onClose(); navigate(to); };
     const scanTile = { title: "Scan recipes", sub: "Pages from a book or a card", icon: "M5 4h10l4 4v12H5z M9 12h6 M9 16h6", run: () => go("/recipes/scan") };
     const newTile = { title: "New recipe", sub: recipesOnly ? "Type one in" : "Blank, or from a classic", icon: ICONS.plus, run: () => { const id = createRecipe("New recipe"); go("/recipes/" + id + "?edit=1"); } };
+    // Inviting someone, said as what it's for: sharing the recipes
+    const shareTile = { title: "Share recipes", sub: recipesOnly ? "Invite a friend" : "Invite a team member", icon: ICONS.invite, run: onInvite };
+    const spillTile = { title: "Something spilled", sub: "Log waste or a spill", icon: ICONS.waste, run: () => go("/waste") };
+    // Feedback, remembering which page it came from (fills out the grid, too)
+    const feedbackTile = { title: "Send feedback", sub: "Ideas, bugs, anything", icon: "M4 5h16v11H9l-5 4z M8 9.5h8 M8 12.5h5", run: () => { onClose(); navigate("/feedback", { state: { from: location.pathname } }); } };
+    const wasteScanTile = { title: "Scan the waste log", sub: "The paper sheet by the well", icon: "M5 4h14v16H5z M8 8h8 M8 12h8 M8 16h5", run: () => go("/waste/scan") };
     const tiles: { title: string; sub: string; icon: string; run: () => void }[] = recipesOnly && !staff
         ? [
             scanTile,
             newTile,
-            ...(canInvite ? [{ title: "Invite family", sub: "QR code or a text", icon: ICONS.invite, run: onInvite }] : [])
+            ...(canInvite ? [shareTile] : []),
+            feedbackTile
         ]
         : staff
         ? [
             { title: "Count", sub: "Pick up where you left off", icon: ICONS.stock, run: () => go("/counts") },
-            { title: "Something broke", sub: "Log waste or a spill", icon: ICONS.waste, run: () => go("/waste") }
+            spillTile,
+            wasteScanTile,
+            feedbackTile
         ]
         : [
             { title: "Count", sub: "Pick up where you left off", icon: ICONS.stock, run: () => go("/counts") },
-            { title: "Something broke", sub: "Log waste or a spill", icon: ICONS.waste, run: () => go("/waste") },
+            canInvite ? shareTile : spillTile,
             scanTile,
             newTile,
-            ...(canInvite ? [{ title: "Invite your team", sub: "QR code or a text", icon: ICONS.invite, run: onInvite }] : []),
-            { title: "Order", sub: "Agave suggests what", icon: "M3 7h11v9H3z M14 10h4l3 3v3h-7", run: () => go("/orders") }
+            { title: "Order", sub: "Agave suggests what", icon: "M3 7h11v9H3z M14 10h4l3 3v3h-7", run: () => go("/orders") },
+            wasteScanTile,
+            ...(canInvite ? [spillTile] : []),
+            feedbackTile
         ];
     return (
         <Sheet title={recipesOnly ? "Add a recipe" : "What's happening?"} onClose={onClose}>
@@ -330,7 +322,14 @@ function SyncBadge({ session }: { session: Session }) {
     );
 }
 
-// Who's signed in, the team, feedback, Account (every other setting lives there), sign out
+// Who's signed in (tap for Account), the team, feedback, Settings (the Account page), sign out
+const MENU_ICONS = {
+    people: "M9 4.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 1 1 0-7 M2.5 20c0-3.6 2.9-6.5 6.5-6.5s6.5 2.9 6.5 6.5 M16 5a3 3 0 0 1 0 6 M18 14c2 .7 3.5 3 3.5 6",
+    feedback: "M4 5h16v11H9l-5 4z M8 9.5h8 M8 12.5h5",
+    settings: "M12 9a3 3 0 1 1 0 6a3 3 0 1 1 0-6 M12 2.5v2.5 M12 19v2.5 M4.6 4.6l1.8 1.8 M17.6 17.6l1.8 1.8 M2.5 12h2.5 M19 12h2.5 M4.6 19.4l1.8-1.8 M17.6 6.4l1.8-1.8",
+    signOut: "M15 4h4v16h-4 M10 8l-4 4 4 4 M6 12h10"
+};
+
 function ProfileMenu({ session, recipesOnly }: { session: Session; recipesOnly: boolean }) {
     const [open, setOpen] = useState(false);
     const location = useLocation();
@@ -352,15 +351,26 @@ function ProfileMenu({ session, recipesOnly }: { session: Session; recipesOnly: 
                 <div className="account-menu" role="menu">
                     {ready && (
                         <>
-                            <div className="account-email">{session.email}</div>
-                            <div className="muted small">{session.bar?.name}</div>
+                            {/* Who and where: tap it for the Account page */}
+                            <Link to="/account" role="menuitem" className="menu-who" onClick={() => setOpen(false)}>
+                                <span className="account-email">{session.email}</span>
+                                <span className="muted small">{session.bar?.name}</span>
+                            </Link>
                             <div className="menu-rule" />
-                            {session.bar?.role !== "staff" && <Link to="/team" role="menuitem">{recipesOnly ? "People & settings" : "Team"}</Link>}
+                            {session.bar?.role !== "staff" && (
+                                <Link to="/team" role="menuitem" className="menu-item" onClick={() => setOpen(false)}><Icon d={MENU_ICONS.people} size={18} />{recipesOnly ? "People" : "Team"}</Link>
+                            )}
                         </>
                     )}
-                    <Link to="/feedback" state={{ from: location.pathname }} role="menuitem" onClick={() => setOpen(false)}>Send feedback</Link>
-                    <Link to="/account" role="menuitem">Account &amp; settings</Link>
-                    {ready && <button className="link-button" role="menuitem" onClick={() => void out()}>Sign out</button>}
+                    <Link to="/feedback" state={{ from: location.pathname }} role="menuitem" className="menu-item" onClick={() => setOpen(false)}>
+                        <Icon d={MENU_ICONS.feedback} size={18} />Send feedback
+                    </Link>
+                    <Link to="/account" role="menuitem" className="menu-item" onClick={() => setOpen(false)}><Icon d={MENU_ICONS.settings} size={18} />Settings</Link>
+                    {ready && (
+                        <button className="link-button menu-item" role="menuitem" onClick={() => void out()}>
+                            <Icon d={MENU_ICONS.signOut} size={18} />Sign out
+                        </button>
+                    )}
                     {session.demo && cloudEnabled && <button className="link-button" role="menuitem" onClick={leaveDemo}>Sign in</button>}
                 </div>
             )}
@@ -372,8 +382,8 @@ function NotAllowed() {
     return (
         <div className="page">
             <h1>Managers only</h1>
-            <p className="muted">Your account can see spec books and training, count stock and log waste. Ask a manager if you need more.</p>
-            <p><Link to="/specs">Go to spec books</Link></p>
+            <p className="muted">Your account can see spec sheets and training, count stock and log waste. Ask a manager if you need more.</p>
+            <p><Link to="/specs">Go to spec sheets</Link></p>
         </div>
     );
 }

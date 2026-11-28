@@ -1,7 +1,8 @@
 // ===== Classics.tsx =====
 // A library of classic cocktail specs to start from.
-//     Search or filter by style
-//     "Add to my recipes" copies one in, costed with your own products, ready to tweak
+//     Search or filter by style; a grid of small tiles (3 across on a phone)
+//     Tap one: its full spec in a sheet, with "Add to my recipes" (costed with your
+//     own products, ready to tweak); a ✓ on the tile = already in your recipes
 //     "Add all in this list" for a bar setting up from scratch
 
 import { useState } from "react";
@@ -9,6 +10,13 @@ import { Link, useNavigate } from "react-router";
 import { useDb } from "../data/storage";
 import { addClassic, CLASSIC_STYLES, CLASSICS, hasRecipeNamed, type Classic, type ClassicStyle } from "../data/classics";
 import { formatFraction } from "../data/utils";
+import { MiniGrid, MiniTile } from "../components/MiniGrid";
+import Sheet from "../components/Sheet";
+
+const STYLE_TINTS: Record<string, string> = {
+    "Spirit-forward": "#efe2cf", "Sour": "#f3efcf", "Highball": "#dfeceb", "Tiki": "#f6e1d3",
+    "Sparkling": "#eef0e0", "Brunch & after dinner": "#ece3ea"
+};
 import { useSession } from "../cloud/session";
 import { canEdit } from "../cloud/access";
 
@@ -17,6 +25,7 @@ export default function Classics() {
     const navigate = useNavigate();
     const [search, setSearch] = useState("");
     const [style, setStyle] = useState<ClassicStyle | "all">("all");
+    const [open, setOpen] = useState<Classic | null>(null);
     const editable = canEdit(useSession().bar?.role ?? null);   // staff can read, not add
 
     // A classic shows IF it's in the chosen style AND its name or an ingredient matches the search
@@ -33,7 +42,7 @@ export default function Classics() {
     }
 
     return (
-        <div className="page">
+        <div className="page tile-page">
             <Link to="/training" className="back">← Training</Link>
             <div className="page-header">
                 <div>
@@ -53,11 +62,17 @@ export default function Classics() {
                 </div>
             </div>
 
-            <div className="classic-grid">
+            <MiniGrid>
                 {shown.map((classic) => (
-                    <ClassicCard key={classic.name} classic={classic} editable={editable} onAdd={() => navigate("/recipes/" + addClassic(classic))} />
+                    <MiniTile key={classic.name} name={classic.name} tint={STYLE_TINTS[classic.style]} meta={classic.style}
+                        badge={hasRecipeNamed(classic.name) ? "✓ yours" : undefined} onClick={() => setOpen(classic)} />
                 ))}
-            </div>
+            </MiniGrid>
+            {open && (
+                <Sheet title={open.name} onClose={() => setOpen(null)}>
+                    <ClassicCard classic={open} editable={editable} onAdd={() => navigate("/recipes/" + addClassic(open))} />
+                </Sheet>
+            )}
             {shown.length === 0 && <p className="muted">No classics match.</p>}
             {shown.length > 1 && editable && (
                 <div className="button-row">
@@ -71,11 +86,8 @@ export default function Classics() {
 function ClassicCard({ classic, editable, onAdd }: { classic: Classic; editable: boolean; onAdd: () => void }) {
     const have = hasRecipeNamed(classic.name);
     return (
-        <article className="card classic">
-            <div className="card-header">
-                <h2>{classic.name}</h2>
-                <span className="tag">{classic.style}</span>
-            </div>
+        <article className="classic classic-sheet">
+            <span className="tag">{classic.style}</span>
             <p className="muted small">{classic.description}</p>
             <ul className="spec-build">
                 {classic.build.map(([amount, unit, name], i) => (

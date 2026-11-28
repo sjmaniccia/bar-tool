@@ -1,5 +1,5 @@
 // ===== Dashboard.tsx =====
-// The home page: what needs attention today, the big numbers, and getting started.
+// Numbers: the four that matter (pour cost, missing, sales, on the shelf), then what needs doing.
 //     Needs attention   items below par, invoices waiting, counts left open, recipes missing prices
 
 import { Link } from "react-router";
@@ -8,7 +8,8 @@ import { sampleData } from "../data/sampleData";
 import { countTotals, latestClosedCount } from "../data/inventory";
 import { invoiceTotal, suggestions } from "../data/purchasing";
 import { missingPrices } from "../data/costing";
-import { findById, formatAmount, plural, formatDate, formatMoney, formatPercent } from "../data/utils";
+import { findById, formatAmount, plural, formatMoney, formatPercent } from "../data/utils";
+import { closedCounts, varianceReport } from "../data/variance";
 import { latestShortages, recipesOverTarget } from "../data/alerts";
 import { formatLabel, unitWord } from "../data/inventory";
 
@@ -64,12 +65,42 @@ export default function Dashboard() {
         })
     ].filter((t) => t !== false);
 
-    const stats = [
-        { label: "Inventory value", value: latest ? formatMoney(countTotals(latest.id).value) : "—", note: latest ? "counted " + formatDate(latest.countedAt) : "no finished count yet", to: "/counts" },
-        { label: "Recipes", value: String(db.recipes.length), note: db.menus.length + (db.menus.length === 1 ? " menu" : " menus"), to: "/recipes" },
-        { label: "Products", value: String(db.products.length), note: db.ingredients.length + " ingredients", to: "/products" },
-        { label: "Vendors", value: String(db.vendors.length), note: db.orders.length + " orders", to: "/vendors" }
+    // The last period: between the two most recent finished counts
+    const closed = closedCounts();
+    const report = closed.length >= 2 ? varianceReport(closed.at(-2)!.id, closed.at(-1)!.id) : null;
+    const hasSales = report !== null && report.salesReports > 0;
+    const missingDollars = report === null ? 0
+        : report.rows.reduce((sum, r) => sum + (r.unitCost !== null && r.variance > 0 ? r.variance * r.unitCost : 0), 0);
+    const period = report ? shortDay(report.opening.countedAt) + " – " + shortDay(report.closing.countedAt) : "";
+
+    // Four numbers that matter, each a door to the page behind it
+    const tiles = [
+        {
+            label: "Pour cost", to: "/reports",
+            value: hasSales && report!.pourCost !== null ? formatPercent(report!.pourCost) : "—",
+            note: hasSales && report!.idealPourCost !== null ? "should be " + formatPercent(report!.idealPourCost) : "needs 2 counts + sales",
+            bad: hasSales && report!.pourCost !== null && report!.idealPourCost !== null && report!.pourCost - report!.idealPourCost > 0.02
+        },
+        {
+            label: "Missing", to: "/reports",
+            value: hasSales ? formatMoney(missingDollars) : "—",
+            note: hasSales ? period : "poured but not rung in",
+            bad: hasSales && missingDollars > 0
+        },
+        {
+            label: "Sales", to: "/sales",
+            value: hasSales ? formatMoney(report!.sales) : "—",
+            note: hasSales ? period : "import or connect your POS",
+            bad: false
+        },
+        {
+            label: "On the shelf", to: "/counts",
+            value: latest ? formatMoney(countTotals(latest.id).value) : "—",
+            note: latest ? "counted " + shortDay(latest.countedAt) : "no finished count yet",
+            bad: false
+        }
     ];
+    const starting = db.recipes.length === 0 || db.products.length === 0;
 
     // Replace everything with the sample bar
     //     IF there's already data, ask first
@@ -82,46 +113,66 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="page">
+        <div className="page menu-page tile-page">
             <div className="page-header">
-                <h1>Dashboard</h1>
+                <h1>Numbers</h1>
             </div>
 
-            <div className="stat-grid">
-                {stats.map((s) => (
-                    <Link key={s.label} to={s.to} className="card stat-card">
-                        <span className="stat-label">{s.label}</span>
-                        <span className="stat-number">{s.value}</span>
-                        <span className="muted small">{s.note}</span>
+            <div className="number-tiles">
+                {tiles.map((t) => (
+                    <Link key={t.label} to={t.to} className={"number-tile" + (t.bad ? " bad" : "")}>
+                        <span className="muted small">{t.label}</span>
+                        <strong>{t.value}</strong>
+                        <span className="muted small">{t.note}</span>
                     </Link>
                 ))}
             </div>
 
             {todo.length > 0 && (
-                <section className="card">
-                    <h2>Needs attention</h2>
-                    <ul className="todo">
+                <>
+                    <h2 className="section-label">Needs attention</h2>
+                    <ul className="card menu-lines">
                         {todo.map((t) => (
-                            <li key={t.text}>
-                                <span>{t.text}</span>
-                                <Link to={t.to} className="button secondary-link">{t.action}</Link>
+                            <li key={t.text} className="menu-line">
+                                <Link to={t.to} className="menu-line-row menu-list-row todo-row">
+                                    <span className="todo-dot" aria-hidden="true" />
+                                    <span className="menu-list-name todo-text">{t.text}</span>
+                                    <span className="todo-action">{t.action}</span>
+                                    <span className="chevron" aria-hidden="true">›</span>
+                                </Link>
                             </li>
                         ))}
                     </ul>
-                </section>
+                </>
             )}
 
-            <section className="card">
-                <h2>Getting started</h2>
-                <ol className="steps">
-                    <li>Add your <Link to="/vendors">vendors</Link> and <Link to="/products">products</Link>, with what you pay.</li>
-                    <li>Write <Link to="/recipes">recipes</Link>. Ingredients can be added before any products exist.</li>
-                    <li>Pick house choices and compare sources on <Link to="/ingredients">Ingredients</Link>.</li>
-                    <li>Set pars on products, then do a <Link to="/counts">stock count</Link> to get order suggestions.</li>
-                    <li>Approve <Link to="/invoices">invoices</Link> as deliveries arrive, and your costs stay current.</li>
-                </ol>
-                <button className="secondary" onClick={loadSample}>Load sample data</button>
-            </section>
+            {/* What's in Agave, small, at the bottom */}
+            <div className="what-chips">
+                <Link to="/recipes" className="chip">{plural(db.recipes.length, "recipe")}</Link>
+                <Link to="/menus" className="chip">{plural(db.menus.length, "menu")}</Link>
+                <Link to="/products" className="chip">{plural(db.products.length, "product")}</Link>
+                <Link to="/vendors" className="chip">{plural(db.vendors.length, "vendor")}</Link>
+            </div>
+
+            {/* Getting started only until there are recipes and products */}
+            {starting && (
+                <section className="card">
+                    <h2>Getting started</h2>
+                    <ol className="steps">
+                        <li>Add your <Link to="/vendors">vendors</Link> and <Link to="/products">products</Link>, with what you pay.</li>
+                        <li>Write <Link to="/recipes">recipes</Link>. Ingredients can be added before any products exist.</li>
+                        <li>Pick house choices and compare sources on <Link to="/ingredients">Ingredients</Link>.</li>
+                        <li>Set pars on products, then do a <Link to="/counts">stock count</Link> to get order suggestions.</li>
+                        <li>Approve <Link to="/invoices">invoices</Link> as deliveries arrive, and your costs stay current.</li>
+                    </ol>
+                    <button className="secondary" onClick={loadSample}>Load sample data</button>
+                </section>
+            )}
         </div>
     );
+}
+
+// "Nov 15"
+function shortDay(day: string): string {
+    return new Date(day.slice(0, 10) + "T12:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }

@@ -8,8 +8,8 @@
 
 import { db, commit } from "./storage";
 import { currentPrice } from "./prices";
-import { findById, makeId, today } from "./utils";
-import type { CountLine, Format, StockCount } from "./types";
+import { findById, makeId } from "./utils";
+import type { CountTime, CountLine, Format, StockCount } from "./types";
 
 
 // ===== Areas =====
@@ -83,7 +83,8 @@ export function unitWord(format: Format): string {
 
 // Start a new count, open for editing, and return its id
 export function createCount(name = ""): string {
-    const count: StockCount = { id: makeId(), name: name.trim() || "Count", countedAt: today(), status: "open" };
+    // SET the start day to the business day (a 1am count started still belongs to last night)
+    const count: StockCount = { id: makeId(), name: name.trim() || "Count", countedAt: guessCountTime().day, status: "open" };
     db.stockCounts.push(count);
     commit();
     return count.id;
@@ -151,12 +152,91 @@ export function countTotals(countId: string): CountTotals {
     return { units, value, unpriced };
 }
 
+// ===== When a count happened =====
+// A count is a snapshot. It can be taken any day, as long as it's taken when nothing is selling:
+//     before opening    -> that day's sales and deliveries come AFTER it
+//     after closing     -> that day's sales and deliveries come BEFORE it
+// So every day has three spots in order: before opening (a) · the business day (b) · after closing (c)
+
+// Where a count sits: "2026-11-15c"
+export function countPoint(count: StockCount): string {
+    return count.countedAt.slice(0, 10) + (count.when === "open" ? "a" : "c");
+}
+
+// Where a sale, delivery or waste entry dated that day sits: "2026-11-15b"
+export function dayPoint(date: string): string {
+    return date.slice(0, 10) + "b";
+}
+
+// Oldest first
+export function byCountTime(a: StockCount, b: StockCount): number {
+    return countPoint(a).localeCompare(countPoint(b));
+}
+
+// Best guess at when a count is being finished, from the clock
+//     The business day doesn't turn over until 5am
+//     IF midnight to 5am  -> after closing, yesterday (a late-night count)
+//     ELSE IF before 3pm  -> before opening, today
+//     ELSE                -> after closing, today
+export const DAY_TURNS_OVER = 5;
+export function guessCountTime(at = new Date()): { day: string; when: CountTime; lateNight: boolean } {
+    const day = new Date(at);
+    if (at.getHours() < DAY_TURNS_OVER) {
+        day.setDate(day.getDate() - 1);
+        return { day: localDay(day), when: "close", lateNight: true };
+    }
+    return { day: localDay(day), when: at.getHours() < 15 ? "open" : "close", lateNight: false };
+}
+
+function localDay(d: Date): string {
+    return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0");
+}
+
+// "before opening" / "after closing"
+export function countTimeLabel(count: StockCount): string {
+    return count.when === "open" ? "before opening" : "after closing";
+}
+
+// Finish a count: stamp when it was taken, and make it the on-hand
+export function finishCount(countId: string, day: string, when: CountTime) {
+    updateCount(countId, { countedAt: day, when, status: "closed" });
+}
+
+// What wasn't counted, but probably should have been
+//     things on hand at the count before this one, or delivered since it, with no line in this count
+//     (left out, they read as 0: fine if they're really gone, a big "missing" if they were just skipped)
+export function notCounted(countId: string): string[] {
+    const count = findById(db.stockCounts, countId);
+    if (count === null) return [];
+    const counted = countTotals(countId).units;
+    const before = db.stockCounts.filter((c) => c.status === "closed" && c.id !== countId && countPoint(c) < countPoint({ ...count, ...guessIfOpen(count) }))
+        .sort(byCountTime).pop() ?? null;
+    const expected = new Set<string>();
+    if (before !== null) {
+        for (const [formatId, units] of countTotals(before.id).units) if (units > 0) expected.add(formatId);
+    }
+    for (const line of db.invoiceLines) {
+        const invoice = findById(db.invoices, line.invoiceId);
+        const unit = findById(db.purchaseUnits, line.purchaseUnitId);
+        if (invoice === null || unit === null) continue;
+        if (before === null || dayPoint(invoice.invoiceDate) > countPoint(before)) expected.add(unit.formatId);
+    }
+    return [...expected].filter((formatId) => !counted.has(formatId) && findById(db.formats, formatId) !== null);
+}
+
+// An open count doesn't have its final time yet: guess it from the clock
+function guessIfOpen(count: StockCount): Partial<StockCount> {
+    if (count.status === "closed") return {};
+    const { day, when } = guessCountTime();
+    return { countedAt: day, when };
+}
+
 // The most recent closed count, or null if none has been closed yet
 export function latestClosedCount(): StockCount | null {
     let latest: StockCount | null = null;
     for (const count of db.stockCounts) {
         if (count.status !== "closed") continue;
-        if (latest === null || count.countedAt > latest.countedAt) latest = count;
+        if (latest === null || byCountTime(count, latest) > 0) latest = count;
     }
     return latest;
 }

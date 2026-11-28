@@ -29,6 +29,7 @@ Then, the same way, each in its own new query, once:
 | `supabase/team-links.sql` | Invite links and QR codes (staff join by scanning) |
 | `supabase/feedback.sql` | The suggestion box: read messages in Table Editor > feedback |
 | `supabase/recipe-photos.sql` | Recipe pictures (a storage bucket, managers can add) |
+| `supabase/owner-handoff.sql` | Hand a place to its real owner (a one-time link from the Account page). Safe to run again |
 | `supabase/recipes-only.sql` | "Just recipes" places: no staff, family change only their own recipes, names for "Added by". Safe to run again |
 | `supabase/pos.sql` | Square (see SETUP-SQUARE.md) |
 | `supabase/scanning.sql`, then `supabase/recipe-scanning.sql` | Scan limits (see SETUP-SCANNING.md) |
@@ -116,3 +117,16 @@ Browser (Agave)                         Supabase
   waste log, even if someone edits the app's code in their browser.
 - `supabase/schema.test.ts` runs the schema in a real Postgres (PGlite) and checks
   those rules on every `npm test`.
+
+## Invoice copies to owners (`invoice-copy` function)
+
+When someone scans an invoice, a copy (details plus the photos) is emailed to the place's
+owners. It sends through Resend, like feedback, but to people outside Agave, so it needs a
+domain you own, verified in Resend:
+
+1. Buy a domain (getagaveapp.com or similar), then in resend.com > Domains, add it and put
+   the DNS records Resend shows into your domain's settings.
+2. Supabase > Edge Functions > Secrets: add `INVOICE_FROM` = `Agave <invoices@yourdomain.com>`
+3. Deploy: `npx supabase functions deploy invoice-copy --remote=<project ref> --use-api`
+
+Until `INVOICE_FROM` is set, the function sends nothing and scanning works as usual.

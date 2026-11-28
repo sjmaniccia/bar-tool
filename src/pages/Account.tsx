@@ -11,7 +11,7 @@ import { Link, useNavigate } from "react-router";
 import { switchBar, useSession } from "../cloud/session";
 import { PRIVACY_URL } from "../native";
 import { deleteAccount, previewDeletion, type DeletionPlan } from "../cloud/account";
-import { setMyName } from "../cloud/team";
+import { makeHandoffLink, setMyName } from "../cloud/team";
 import { useRecipesOnly } from "../data/place";
 import { setShowEverything, useSetupPrefs } from "../data/setup";
 import { currentTheme, toggleTheme } from "../theme";
@@ -25,6 +25,7 @@ export default function Account() {
     const [asking, setAsking] = useState(false);
     const [typed, setTyped] = useState("");
     const [busy, setBusy] = useState(false);
+    const [showDelete, setShowDelete] = useState(false);     // tucked away behind a small link
 
     useEffect(() => {
         if (session.mode !== "ready") return;
@@ -60,55 +61,62 @@ export default function Account() {
             </div>
 
             <YourPlaces />
+            <HandOver />
             <YourName />
             <AppSettings />
             <SoundSettings />
 
             <p className="muted small">How Agave handles your data: <a href={PRIVACY_URL} target="_blank" rel="noreferrer">privacy policy</a>.</p>
 
-            <section className="card danger-card">
-                <h2>Delete your account</h2>
-                <p>This deletes your sign-in for good. It can't be undone.</p>
-                {plan === null && !error && <p className="muted small">Checking your places…</p>}
-                {plan && plan.deleted.length > 0 && (
-                    <>
-                        <p><strong>These places will be deleted too</strong>, with all their recipes, products, counts and invoices, because you're their only owner:</p>
-                        <ul className="plain-list">
-                            {plan.deleted.map((p) => (
-                                <li key={p.barId}>
-                                    <strong>{p.barName}</strong>
-                                    {p.others > 0 && <span className="warn small"> · {p.others} {p.others === 1 ? "person loses" : "people lose"} access</span>}
-                                </li>
-                            ))}
-                        </ul>
-                        <p className="muted small">
-                            Want a place to live on without you? Make someone else an owner on the <Link to="/team">Team</Link> page first.
-                            Want a copy of its data? Download one from <Link to="/data">Backup &amp; export</Link>.
-                        </p>
-                    </>
-                )}
-                {plan && plan.left.length > 0 && (
-                    <p className="muted small">You'll leave {plan.left.map((p) => p.barName).join(", ")}. {plan.left.length === 1 ? "It stays" : "They stay"} as they are for everyone else.</p>
-                )}
-                {error && <p className="error" role="alert">{error}</p>}
+            {/* Deleting isn't a button you stumble on: a quiet link at the very bottom opens it
+                (Apple requires it to be findable in the app, so it can't be removed) */}
+            {showDelete ? (
+                <section className="card danger-card">
+                    <h2>Delete your account</h2>
+                    <p>This deletes your sign-in for good. It can't be undone.</p>
+                    {plan === null && !error && <p className="muted small">Checking your places…</p>}
+                    {plan && plan.deleted.length > 0 && (
+                        <>
+                            <p><strong>These places will be deleted too</strong>, with all their recipes, products, counts and invoices, because you're their only owner:</p>
+                            <ul className="plain-list">
+                                {plan.deleted.map((p) => (
+                                    <li key={p.barId}>
+                                        <strong>{p.barName}</strong>
+                                        {p.others > 0 && <span className="warn small"> · {p.others} {p.others === 1 ? "person loses" : "people lose"} access</span>}
+                                    </li>
+                                ))}
+                            </ul>
+                            <p className="muted small">
+                                Want a place to live on without you? Make someone else an owner on the <Link to="/team">Team</Link> page first.
+                                Want a copy of its data? Download one from <Link to="/data">Backup &amp; export</Link>.
+                            </p>
+                        </>
+                    )}
+                    {plan && plan.left.length > 0 && (
+                        <p className="muted small">You'll leave {plan.left.map((p) => p.barName).join(", ")}. {plan.left.length === 1 ? "It stays" : "They stay"} as they are for everyone else.</p>
+                    )}
+                    {error && <p className="error" role="alert">{error}</p>}
 
-                {!asking ? (
-                    <button className="danger" onClick={() => setAsking(true)} disabled={plan === null}>Delete my account…</button>
-                ) : (
-                    <div className="delete-confirm">
-                        <label>
-                            Type <strong>DELETE</strong> to confirm
-                            <input value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="characters" autoComplete="off" aria-label="Type DELETE to confirm" />
-                        </label>
-                        <div className="button-row">
-                            <button className="secondary" onClick={() => { setAsking(false); setTyped(""); }} disabled={busy}>Cancel</button>
-                            <button className="danger solid" onClick={() => void confirmDelete()} disabled={typed.trim().toUpperCase() !== "DELETE" || busy}>
-                                {busy ? "Deleting…" : "Delete forever"}
-                            </button>
+                    {!asking ? (
+                        <button className="danger" onClick={() => setAsking(true)} disabled={plan === null}>Delete my account…</button>
+                    ) : (
+                        <div className="delete-confirm">
+                            <label>
+                                Type <strong>DELETE</strong> to confirm
+                                <input value={typed} onChange={(e) => setTyped(e.target.value)} autoCapitalize="characters" autoComplete="off" aria-label="Type DELETE to confirm" />
+                            </label>
+                            <div className="button-row">
+                                <button className="secondary" onClick={() => { setAsking(false); setTyped(""); }} disabled={busy}>Cancel</button>
+                                <button className="danger solid" onClick={() => void confirmDelete()} disabled={typed.trim().toUpperCase() !== "DELETE" || busy}>
+                                    {busy ? "Deleting…" : "Delete forever"}
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                )}
-            </section>
+                    )}
+                </section>
+            ) : (
+                <button className="link-button small muted delete-reveal" onClick={() => setShowDelete(true)}>Delete account…</button>
+            )}
         </div>
     );
 }
@@ -143,6 +151,61 @@ function YourPlaces() {
                 ))}
             </ul>
             <Link to="/places/new" className="place-new">+ New bar or recipe book</Link>
+        </section>
+    );
+}
+
+// Set this place up for someone else? Hand it to its real owner (owner-handoff.sql).
+// The invoice copies that owners get by email link here.
+//     a one-time link: they open it, sign up, and they're the owner; I become a manager
+function HandOver() {
+    const session = useSession();
+    const recipesOnly = useRecipesOnly();
+    const [link, setLink] = useState<string | null>(null);
+    const [error, setError] = useState("");
+    const [busy, setBusy] = useState(false);
+    if (session.mode !== "ready" || session.bar?.role !== "owner") return null;
+    const name = session.bar.name;
+    const what = recipesOnly ? "recipe book" : "place";
+
+    async function make() {
+        setBusy(true);
+        setError("");
+        const reply = await makeHandoffLink(session.bar!.id);
+        if ("error" in reply) setError(reply.error);
+        else setLink(reply.url);
+        setBusy(false);
+    }
+
+    async function send() {
+        const text = "I set up " + name + " on Agave for you. Open this to take it over as the owner: " + link;
+        if (navigator.share) {
+            try { await navigator.share({ text }); } catch { /* closed it */ }
+        } else {
+            try { await navigator.clipboard.writeText(text); setError("Copied. Paste it into a text or email."); } catch { prompt("Copy this:", text); }
+        }
+    }
+
+    return (
+        <section className="card">
+            <h2>Hand {name} over</h2>
+            <p className="muted small">
+                Set this {what} up for someone else, like the owner of the bar? Send them a hand-over link. When they open it
+                and sign up, they become the owner of {name}, and you stay on as a manager. Invoice copies go to them from then on.
+            </p>
+            {link ? (
+                <>
+                    <p className="handover-link small">{link}</p>
+                    <div className="button-row">
+                        <button onClick={() => void send()}>Text or email it</button>
+                        <button className="link-button" onClick={() => void make()} disabled={busy}>New link</button>
+                    </div>
+                    <p className="muted small">Works once, for 7 days. A new link turns this one off.</p>
+                </>
+            ) : (
+                <button className="secondary" onClick={() => void make()} disabled={busy}>{busy ? "Making a link…" : "Make a hand-over link"}</button>
+            )}
+            {error && <p className="muted small" role="status">{error}</p>}
         </section>
     );
 }

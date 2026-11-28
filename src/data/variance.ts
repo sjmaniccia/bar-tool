@@ -8,12 +8,13 @@
 //     VARIANCE          = actual - theoretical - waste             (positive = missing)
 //     POUR COST         = $ actually used ÷ $ sales
 //
-// Which records count for the period (opening date < date <= closing date):
+// Which records count for the period (after the opening count, up to the closing count):
 //     invoices by invoice date, waste by its date, sales reports by their LAST day.
+//     Counts can be any day: "before opening" or "after closing" decides which side that day's records land on.
 
 import { isSupply } from "./library";
 import { db, commit } from "./storage";
-import { countTotals, unitCost } from "./inventory";
+import { byCountTime, countPoint, countTotals, dayPoint, unitCost } from "./inventory";
 import { addRecipeUsage, batchesFor, emptyUsage, type UsageResult } from "./usage";
 import { findById, makeId, now } from "./utils";
 import type { PosLink, SalesLine, StockCount, WasteEntry } from "./types";
@@ -157,13 +158,14 @@ export interface VarianceReport {
     idealPourCost: number | null;   // theoreticalValue ÷ sales
     unmatchedSales: number;     // POS items sold but not matched to a recipe
     salesReports: number;
+    splitReports: string[];     // sales reports that cover days on both sides of the opening count
     problems: string[];         // ingredients that couldn't be traced to a product
 }
 
 // Is a date inside the period? (after the opening count, up to and including the closing count)
 function inPeriod(date: string, opening: StockCount, closing: StockCount): boolean {
-    const day = date.slice(0, 10);
-    return day > opening.countedAt && day <= closing.countedAt;
+    const point = dayPoint(date);
+    return point > countPoint(opening) && point < countPoint(closing);
 }
 
 // Is this format a supply (paper, cleaning...)? Those stay out of the report's rows and pour cost
@@ -176,7 +178,7 @@ function supplyFormat(formatId: string): boolean {
 export function varianceReport(openingId: string, closingId: string): VarianceReport | null {
     const opening = findById(db.stockCounts, openingId);
     const closing = findById(db.stockCounts, closingId);
-    if (opening === null || closing === null || opening.countedAt >= closing.countedAt) return null;
+    if (opening === null || closing === null || byCountTime(opening, closing) >= 0) return null;
 
     const open = countTotals(opening.id);
     const close = countTotals(closing.id);
@@ -203,7 +205,10 @@ export function varianceReport(openingId: string, closingId: string): VarianceRe
     let sales = 0;
     let unmatchedSales = 0;
     let salesReports = 0;
+    const splitReports: string[] = [];
     for (const report of db.salesImports) {
+        // A report that starts before the opening count but ends inside the period mixes two periods
+        if (inPeriod(report.endDate, opening, closing) && dayPoint(report.startDate) < countPoint(opening)) splitReports.push(report.name);
         if (!inPeriod(report.endDate, opening, closing)) continue;
         salesReports++;
         for (const line of db.salesLines.filter((l) => l.importId === report.id)) {
@@ -262,11 +267,12 @@ export function varianceReport(openingId: string, closingId: string): VarianceRe
         idealPourCost: sales > 0 ? theoreticalValue / sales : null,
         unmatchedSales,
         salesReports,
+        splitReports,
         problems: [...theoretical.problems, ...waste.problems]
     };
 }
 
 // Finished counts, oldest first (the report picks two of these)
 export function closedCounts(): StockCount[] {
-    return db.stockCounts.filter((c) => c.status === "closed").sort((a, b) => a.countedAt.localeCompare(b.countedAt));
+    return db.stockCounts.filter((c) => c.status === "closed").sort(byCountTime);
 }

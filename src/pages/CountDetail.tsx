@@ -13,12 +13,14 @@ import { Fragment, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useDb } from "../data/storage";
 import {
-    caseSize, countTotals, deleteCount, findCountLine, formatLabel, lineUnits, setCount, unitCost, unitWord, updateCount
+    caseSize, countTimeLabel, countTotals, deleteCount, findCountLine, finishCount, formatLabel, guessCountTime, lineUnits, notCounted,
+    setCount, unitCost, unitWord, updateCount
 } from "../data/inventory";
 import { FAMILIES } from "../data/library";
 import { findById, formatAmount, formatDate, formatMoney } from "../data/utils";
 import { familyOf } from "../data/units";
-import type { Format } from "../data/types";
+import type { CountTime, Format } from "../data/types";
+import Sheet from "../components/Sheet";
 import TextInput from "../components/TextInput";
 import AmountInput from "../components/AmountInput";
 import Status from "../components/Status";
@@ -40,6 +42,7 @@ export default function CountDetail() {
     const [scanning, setScanning] = useState(false);
     const [scanNote, setScanNote] = useState<{ text: string; ok: boolean } | null>(null);
     const [flashId, setFlashId] = useState<string | null>(null);       // the row just scanned, highlighted
+    const [finishing, setFinishing] = useState(false);
 
     if (count === null) {
         return (
@@ -101,14 +104,14 @@ export default function CountDetail() {
                     <h1>{count.name}</h1>
                     <div className="tags">
                         <Status status={count.status} />
-                        <span className="tag">{formatDate(count.countedAt)}</span>
+                        <span className="tag">{locked ? formatDate(count.countedAt) + " · " + countTimeLabel(count) : "started " + formatDate(count.countedAt)}</span>
                         <span className="tag house">{formatMoney(totals.value)}</span>
                     </div>
                 </div>
                 <div className="button-row">
                     {locked
                         ? <button className="secondary" onClick={() => updateCount(count.id, { status: "open" })}>Reopen</button>
-                        : <button onClick={() => { updateCount(count.id, { status: "closed" }); celebrate("big"); toast("Count finished", { sub: "On-hand and inventory value are up to date." }); }}>Finish count</button>}
+                        : <button onClick={() => setFinishing(true)}>Finish count</button>}
                     <button className="secondary" onClick={() => window.print()}>Print</button>
                     <button className="danger" onClick={remove}>Delete</button>
                 </div>
@@ -119,8 +122,6 @@ export default function CountDetail() {
                     <div className="form-grid">
                         <label className="form-field"><span>Name</span>
                             <TextInput value={count.name} required onSave={(name) => updateCount(count.id, { name })} /></label>
-                        <label className="form-field"><span>Date</span>
-                            <TextInput type="date" value={count.countedAt} required onSave={(countedAt) => updateCount(count.id, { countedAt })} /></label>
                     </div>
                 </section>
             )}
@@ -135,6 +136,8 @@ export default function CountDetail() {
                     Summary
                 </button>
             </div>
+
+            {finishing && <FinishSheet countId={count.id} onClose={() => setFinishing(false)} />}
 
             <div className="toolbar no-print">
                 <input type="search" placeholder="Search or scan a barcode…" value={search} aria-label="Search or scan"
@@ -312,5 +315,60 @@ function SummaryTable({ formats, totals }: { formats: Format[]; totals: Map<stri
                 </table>
             </div>
         </section>
+    );
+}
+
+
+// Finishing: when was it counted, and was anything skipped?
+//     The time decides which side of the count that day's sales and deliveries land on.
+//     Anything skipped counts as 0, so ask before it shows up as "missing" in the variance report.
+function FinishSheet({ countId, onClose }: { countId: string; onClose: () => void }) {
+    const db = useDb();
+    const guess = guessCountTime();
+    const [day, setDay] = useState(guess.day);
+    const [when, setWhen] = useState<CountTime>(guess.when);
+    const skipped = notCounted(countId).map((id) => findById(db.formats, id)).filter((f) => f !== null);
+
+    function finish() {
+        finishCount(countId, day, when);
+        celebrate("big");
+        toast("Count finished", { sub: "On-hand and inventory value are up to date." });
+        onClose();
+    }
+
+    return (
+        <Sheet title="Finish the count" onClose={onClose}>
+            <p className="muted small">When did you count? That day's sales and deliveries go on the right side of it.</p>
+            <div className="choice-pair" role="radiogroup" aria-label="When">
+                <button type="button" role="radio" aria-checked={when === "open"} className={"choice" + (when === "open" ? " picked" : "")} onClick={() => setWhen("open")}>
+                    <strong>Before opening</strong><span className="muted small">sales today come after</span>
+                </button>
+                <button type="button" role="radio" aria-checked={when === "close"} className={"choice" + (when === "close" ? " picked" : "")} onClick={() => setWhen("close")}>
+                    <strong>After closing</strong><span className="muted small">sales today come before</span>
+                </button>
+            </div>
+            <label className="form-field"><span>Business day</span>
+                <input type="date" value={day} onChange={(e) => e.target.value && setDay(e.target.value)} /></label>
+            {/* After midnight, tonight still belongs to yesterday until 5am */}
+            {guess.lateNight && day === guess.day && (
+                <p className="muted small late-night-note">Marked as yesterday ({new Date(day + "T12:00:00").toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}). It's after midnight, so this counts toward last night until 5am.</p>
+            )}
+
+            {skipped.length > 0 && (
+                <div className="skipped">
+                    <strong>{skipped.length} {skipped.length === 1 ? "thing wasn't" : "things weren't"} counted</strong>
+                    <p className="muted small">You had {skipped.length === 1 ? "it" : "these"} last time or got a delivery since. Not counted means 0, which looks like it all went missing.</p>
+                    <ul className="skipped-list">
+                        {skipped.slice(0, 8).map((f) => <li key={f!.id}>{formatLabel(f!)}</li>)}
+                        {skipped.length > 8 && <li className="muted">and {skipped.length - 8} more</li>}
+                    </ul>
+                </div>
+            )}
+
+            <div className="button-row sheet-buttons">
+                <button className="secondary" onClick={onClose}>Keep counting</button>
+                <button onClick={finish}>{skipped.length > 0 ? "They're gone, finish" : "Finish count"}</button>
+            </div>
+        </Sheet>
     );
 }

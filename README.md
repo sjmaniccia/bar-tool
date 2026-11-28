@@ -84,6 +84,7 @@ supabase/
   team-links.sql   invite links (join by QR code or a texted link)
   recipe-photos.sql  the storage bucket for recipe pictures
   recipes-only.sql   "Just recipes" places: no staff, everyone changes only their own recipes
+  owner-handoff.sql  hand a place to its real owner with a one-time link
   scanning.sql     scan limits per bar (20 a day, 300 a month by default)
   square-test-sales.mjs  rings up fake sales in Square's sandbox
 ```

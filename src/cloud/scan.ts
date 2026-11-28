@@ -88,6 +88,26 @@ export async function scanInvoice(barId: string, pages: ScanPage[]): Promise<Sca
     return reply.ok ? { ok: true, invoice: reply.data.invoice, warnings: reply.warnings, usage: reply.usage } : reply;
 }
 
+// One line read off a paper waste log (supabase/functions/_shared/waste-scan.ts)
+export interface ScannedWaste {
+    date: string;
+    item: string;
+    quantity: number;
+    unit: string;
+    reason: "spill" | "comp" | "returned" | "breakage" | "expired" | "other";
+    note: string;
+}
+
+export type WasteReply =
+    | { ok: true; lines: ScannedWaste[]; warnings: string[]; usage: ScanUsage | null }
+    | { ok: false; error: string; usage: ScanUsage | null };
+
+// The photos of a waste log -> its lines (counts against the invoice scans)
+export async function scanWaste(barId: string, pages: ScanPage[]): Promise<WasteReply> {
+    const reply = await callScanner<{ lines: ScannedWaste[] }>("scan-waste", barId, pages);
+    return reply.ok ? { ok: true, lines: reply.data.lines, warnings: reply.warnings, usage: reply.usage } : reply;
+}
+
 export type RecipeReply =
     | { ok: true; recipes: ScannedRecipe[]; warnings: string[]; usage: ScanUsage | null }
     | { ok: false; error: string; usage: ScanUsage | null };

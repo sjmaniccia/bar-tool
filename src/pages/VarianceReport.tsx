@@ -179,6 +179,13 @@ function ReportBody({ report }: { report: Report }) {
                 </div>
             </section>
 
+            {report.splitReports.length > 0 && (
+                <section className="card">
+                    <h2>Sales cross a count</h2>
+                    <p className="muted small">These sales reports start before the opening count, so some of their sales belong to the last period: {report.splitReports.join(", ")}. Import sales a day at a time (or connect Square or Toast) and any count day works.</p>
+                </section>
+            )}
+
             {report.problems.length > 0 && (
                 <section className="card">
                     <h2>Couldn't trace</h2>

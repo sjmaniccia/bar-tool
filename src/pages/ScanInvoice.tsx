@@ -19,7 +19,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useDb } from "../data/storage";
 import { useSession } from "../cloud/session";
-import { limitReached, MAX_PAGES, scanInvoice, scanUsage, shrinkPhoto, type ScanUsage } from "../cloud/scan";
+import { limitReached, MAX_PAGES, scanInvoice, scanUsage, shrinkPhoto, type ScanPage, type ScanUsage } from "../cloud/scan";
+import { sendInvoiceCopy } from "../cloud/invoiceCopy";
 import {
     addUnmatchedAsProducts, buildDraft, createInvoiceFromDraft, createProductFromLine, draftTotals, ensureVendor,
     lineAmount, rematch, setLineSupply, unitIsSupply, unitLabel, unmatchedLines, vendorDisplayName,
@@ -51,6 +52,7 @@ export default function ScanInvoice() {
     const navigate = useNavigate();
     const [step, setStep] = useState<Step>("photos");
     const [files, setFiles] = useState<File[]>([]);
+    const [photos, setPhotos] = useState<ScanPage[]>([]);    // the shrunk pages, kept for the owners' copy
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const [draft, setDraft] = useState<Draft | null>(null);
@@ -89,6 +91,7 @@ export default function ScanInvoice() {
         try {
             const pages = [];
             for (const file of files) pages.push(await shrinkPhoto(file));
+            setPhotos(pages);
             const reply = await scanInvoice(barId!, pages);
             if (reply.usage) setUsage(reply.usage);
             if (!reply.ok) {
@@ -282,6 +285,8 @@ export default function ScanInvoice() {
         if (problems.length > 0 && !confirm(problems.join(" ") + " Create the invoice anyway?")) return;
         navigate("/invoices/" + createInvoiceFromDraft(d));
         toast("Invoice created", { sub: "Approve it to update prices.", sound: "tick" });
+        // A copy to the owners, in the background (invoiceCopy.ts)
+        if (barId) void sendInvoiceCopy(barId, d, photos);
     }
 
     const selectValue = (line: DraftLine) => (line.use === "skip" ? SKIP : line.use === "charge" ? CHARGE : line.purchaseUnitId ?? "");

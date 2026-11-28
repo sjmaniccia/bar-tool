@@ -116,7 +116,9 @@ export function SignInScreen() {
         <AuthCard title={titles[tab]} subtitle={tab === "forgot" ? "We'll email you a link to set a new one." : undefined}>
             {joining && joining !== "bad" && (
                 <div className="auth-joining" role="status">
-                    {joining.recipeBook
+                    {joining.role === "owner"
+                        ? <>You're taking over <strong>{joining.barName}</strong> as its owner.</>
+                        : joining.recipeBook
                         ? <>You're joining the <strong>{joining.barName}</strong> recipe book.</>
                         : <>You're joining <strong>{joining.barName}</strong> as {joining.role === "manager" ? "a manager" : "staff"}.</>}
                     {tab === "up" ? " Make an account to get in." : " Sign in to get in."}

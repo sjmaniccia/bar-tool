@@ -160,9 +160,13 @@ export type CountStatus = "open" | "closed";
 export interface StockCount {
     id: string;
     name: string;
-    countedAt: string;
+    countedAt: string;          // the business day it was counted
+    when?: CountTime;           // before opening or after closing that day (old counts: after closing)
     status: CountStatus;
 }
+
+// When a count happened in the business day, so same-day sales and deliveries land on the right side of it
+export type CountTime = "open" | "close";
 
 // How much of one format is in one area: whole cases + loose units (bottles can be 0.3)
 export interface CountLine {

@@ -1,9 +1,11 @@
 // ===== WasteLog.tsx =====
 // Log what's used without being sold: a dropped bottle, a comped round, a returned drink.
 // Logged waste is subtracted on the variance report, so it doesn't look like theft,
-// and the reasons show where the money goes.
+// and the reasons show where the money goes. The paper sheet can be scanned instead (ScanWaste.tsx).
 
 import { useState, type FormEvent } from "react";
+import { Link } from "react-router";
+import { cloudEnabled } from "../cloud/client";
 import { useDb } from "../data/storage";
 import { addWaste, deleteWaste, wasteValue } from "../data/variance";
 import { formatLabel } from "../data/inventory";
@@ -61,6 +63,12 @@ export default function WasteLog() {
                     <h1>Waste log</h1>
                     <p className="muted">Spills, comps and breakage. Logged waste is taken out of the variance, so it isn't counted as missing.</p>
                 </div>
+                {cloudEnabled && (
+                    <Link className="button secondary" to="/waste/scan">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z" /><circle cx="12" cy="13" r="3.5" /></svg>
+                        {" "}Scan the paper log
+                    </Link>
+                )}
             </div>
 
             <section className="card">

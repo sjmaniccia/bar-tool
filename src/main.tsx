@@ -11,7 +11,7 @@
 //     #/data             Backup, exports, products import
 //     #/training         Flashcards and quizzes from your recipes
 //     #/classics         Classic cocktail library
-//     #/specs            Spec books for every menu
+//     #/specs            Spec sheets for every menu
 //     #/team             Team members, roles and invites (signed in)
 // The # keeps everything on one real page, which GitHub Pages needs.
 
@@ -54,6 +54,7 @@ import Team from "./pages/Team";
 import Account from "./pages/Account";
 import Feedback from "./pages/Feedback";
 import NewPlace from "./pages/NewPlace";
+import ScanWaste from "./pages/ScanWaste";
 import { GroceryListPage, GroceryLists, NewGroceryList } from "./pages/Groceries";
 import { startSession } from "./cloud/session";
 import NotFound from "./pages/NotFound";
@@ -111,6 +112,7 @@ const router = createHashRouter([
             { path: "sales/:importId", element: <SalesDetail /> },
             { path: "reports", element: <VarianceReport /> },
             { path: "waste", element: <WasteLog /> },
+            { path: "waste/scan", element: <ScanWaste /> },
             { path: "data", element: <DataPage /> },
             { path: "training", element: <Training /> },
             { path: "classics", element: <Classics /> },

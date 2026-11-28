@@ -1,5 +1,5 @@
 // ===== lineText.ts =====
-// How one ingredient line reads, the same everywhere (scan check, recipe page, spec book):
+// How one ingredient line reads, the same everywhere (scan check, recipe page, spec sheet):
 //     2 onions, chopped          a count: never "2 each onions"
 //     3 cloves garlic            a count of something ("clove"), plural when more than one
 //     1 1/2 cups flour           a measure (spoken measures read plural)

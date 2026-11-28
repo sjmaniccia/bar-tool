@@ -1,5 +1,5 @@
 // ===== SpecBook.tsx =====
-// A printable spec book for one menu: every recipe with its build, glass,
+// A printable spec sheet for one menu: every recipe with its build, glass,
 // garnish and method, the way staff learn them. No costs on it, so it can
 // go behind the bar. Each recipe starts on its own half page when printed.
 
@@ -17,8 +17,8 @@ export default function SpecBook() {
     const { menuId } = useParams();
     const menu = findById(db.menus, menuId ?? null);
     const session = useSession();
-    // Staff come here from Spec books; managers from the menu
-    const back = canEdit(session.bar?.role ?? null) && menu ? { to: "/menus/" + menu.id, label: menu.name } : { to: "/specs", label: "Spec books" };
+    // Staff come here from Spec sheets; managers from the menu
+    const back = canEdit(session.bar?.role ?? null) && menu ? { to: "/menus/" + menu.id, label: menu.name } : { to: "/specs", label: "Spec sheets" };
 
     if (menu === null) {
         return (
@@ -37,7 +37,7 @@ export default function SpecBook() {
             <div className="page-header">
                 <div>
                     <h1>{menu.name}</h1>
-                    <p className="muted">Spec book · {rows.length} {rows.length === 1 ? "recipe" : "recipes"}</p>
+                    <p className="muted">Spec sheet · {rows.length} {rows.length === 1 ? "recipe" : "recipes"}</p>
                 </div>
                 <button className="no-print" onClick={() => window.print()}>Print</button>
             </div>

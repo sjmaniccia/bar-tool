@@ -37,14 +37,14 @@ export function admin(): SupabaseClient {
     return createClient(env("SUPABASE_URL"), key, { auth: { persistSession: false } });
 }
 
-// Signed in, and an owner or manager of this bar? -> the user's id, or the refusal to send back
-export async function allowed(req: Request, barId: string, what: string): Promise<string | Response> {
+// Signed in, and an owner or manager of this bar (or one of `roles`)? -> the user's id, or the refusal to send back
+export async function allowed(req: Request, barId: string, what: string, roles = ["owner", "manager"]): Promise<string | Response> {
     const db = admin();
     const token = (req.headers.get("Authorization") ?? "").replace(/^Bearer /, "");
     const { data, error } = await db.auth.getUser(token);
     if (error || !data.user) return json({ error: "Sign in first." }, 401);
     const { data: member } = await db.from("members").select("role").eq("bar_id", barId).eq("user_id", data.user.id).maybeSingle();
-    if (!member || !["owner", "manager"].includes(member.role)) return json({ error: "Only owners and managers can scan " + what + "." }, 403);
+    if (!member || !roles.includes(member.role)) return json({ error: roles.includes("staff") ? "You're not part of this place." : "Only owners and managers can scan " + what + "." }, 403);
     return data.user.id;
 }
 

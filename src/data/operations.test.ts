@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, test } from "vitest";
 import { db } from "./storage";
 import { sampleData } from "./sampleData";
 import { currentPrice } from "./prices";
-import { caseSize, countTotals, onHand, setCount, createCount, unitCost } from "./inventory";
+import { caseSize, countTotals, onHand, setCount, createCount, unitCost, finishCount, guessCountTime, notCounted, latestClosedCount } from "./inventory";
 import { approveInvoice, createSuggestedOrders, receiveOrder, suggestions, invoiceTotal } from "./purchasing";
 import { menuStats, addToMenu, moveItem, itemsOf } from "./menus";
 import { findById } from "./utils";
@@ -142,5 +142,56 @@ describe("variance (sold vs used)", () => {
         expect(lines.length).toBe(1);
         expect(lines[0].quantity).toBe(15);
         expect(lines[0].recipeId).toBe("r-daiquiri");
+    });
+});
+
+
+describe("counts on any day", () => {
+    test("a count before opening puts that day's sales after it", () => {
+        // Move the closing count to the morning of the 15th: the sales report ending the 15th no longer fits
+        findById(db.stockCounts, "c-1")!.when = "open";
+        const report = varianceReport("c-0", "c-1")!;
+        expect(report.salesReports).toBe(0);
+    });
+
+    test("two counts on the same day, before opening and after closing, make a one-day period", () => {
+        const morning = createCount("Morning");
+        setCount(morning, null, "f-rum", 0, 10);
+        finishCount(morning, "2026-11-20", "open");
+        const night = createCount("Night");
+        setCount(night, null, "f-rum", 0, 8);
+        finishCount(night, "2026-11-20", "close");
+        importSales("nov-20.csv", "2026-11-20", "2026-11-20", [{ itemName: "Daiquiri", quantity: 30, revenue: 330 }]);
+        const report = varianceReport(morning, night)!;
+        expect(report.salesReports).toBe(1);
+        expect(report.rows.find((r) => r.formatId === "f-rum")!.actual).toBeCloseTo(2);
+        expect(latestClosedCount()!.id).toBe(night);
+        expect(varianceReport(night, morning)).toBeNull();      // backwards doesn't work
+    });
+
+    test("a weekly sales report that starts before the opening count gets flagged", () => {
+        const a = createCount("Wed");
+        setCount(a, null, "f-rum", 0, 10);
+        finishCount(a, "2026-11-18", "close");
+        const b = createCount("Sun");
+        setCount(b, null, "f-rum", 0, 5);
+        finishCount(b, "2026-11-22", "close");
+        importSales("week.csv", "2026-11-16", "2026-11-22", [{ itemName: "Daiquiri", quantity: 10, revenue: 110 }]);
+        expect(varianceReport(a, b)!.splitReports).toEqual(["week.csv"]);
+    });
+
+    test("things on hand last time but skipped this time are listed before finishing", () => {
+        const id = createCount("Half done");
+        setCount(id, null, "f-rum", 0, 10);
+        const skipped = notCounted(id);
+        expect(skipped).not.toContain("f-rum");
+        expect(skipped).toContain("f-tequila");
+    });
+
+    test("a late-night finish counts as after closing yesterday", () => {
+        expect(guessCountTime(new Date(2026, 10, 21, 0, 5))).toEqual({ day: "2026-11-20", when: "close", lateNight: true });
+        expect(guessCountTime(new Date(2026, 10, 21, 4, 59))).toEqual({ day: "2026-11-20", when: "close", lateNight: true });
+        expect(guessCountTime(new Date(2026, 10, 21, 5, 0))).toEqual({ day: "2026-11-21", when: "open", lateNight: false });
+        expect(guessCountTime(new Date(2026, 10, 21, 23, 0))).toEqual({ day: "2026-11-21", when: "close", lateNight: false });
     });
 });

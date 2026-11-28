@@ -63,7 +63,10 @@ From the `bar-tool` folder (you're already logged in from the Square setup):
 ```
 npx supabase functions deploy scan-invoice --remote=YOUR-REF --use-api
 npx supabase functions deploy scan-recipes --remote=YOUR-REF --use-api
+npx supabase functions deploy scan-waste --remote=YOUR-REF --use-api
 ```
+
+(scan-waste reads paper waste logs; a sheet counts as one invoice scan, so it needs no SQL.)
 
 Each should end with "Deployed Functions on project YOUR-REF: ...".
 These keep Supabase's sign-in check on (no `--no-verify-jwt`): only signed-in users
